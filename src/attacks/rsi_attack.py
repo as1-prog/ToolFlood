@@ -19,13 +19,12 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 from pydantic import BaseModel, Field
 
-# Allow running this file directly (python rsi/attack.py) without installing
-# the package, by adding the repository root to sys.path.
-_REPO_ROOT = Path(__file__).resolve().parents[1]
+# Allow running this file directly without installing the package
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from toolflood.utils import (
+from src.utils import (
     Tool,
     GeneratedTool,
     GeneratedTools,
@@ -277,7 +276,7 @@ def main() -> int:
 
     benign_tools = []
     if benign_tools_path.exists():
-        from toolflood.utils import load_tools
+        from src.utils import load_tools
         benign_tools = load_tools(benign_tools_path)
         logger.info(f"Loaded {len(benign_tools)} benign tools")
     else:

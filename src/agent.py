@@ -17,7 +17,7 @@ from typing import List, Optional, Sequence
 from loguru import logger
 from transformers import pipeline
 
-from toolflood.utils import (
+from src.utils import (
     Tool,
     ToolDecision,
     get_data_dir,

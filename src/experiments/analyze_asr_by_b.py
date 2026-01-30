@@ -27,18 +27,18 @@ import pandas as pd
 from loguru import logger
 from tqdm import tqdm
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add repo root to path for src imports
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from langchain_core.documents import Document
 
-from toolflood.agent import VictimAgent
-from toolflood.metrics import (
+from src.agent import VictimAgent
+from src.metrics import (
     calculate_asr,
     calculate_mean_domination,
     calculate_tdr,
 )
-from toolflood.utils import (
+from src.utils import (
     Tool,
     get_base_path,
     init_embedding_model,
@@ -50,7 +50,7 @@ from toolflood.utils import (
     load_vector_store,
     resolve_path,
 )
-from scripts.build_vectorstore import init_vector_store
+from src.scripts.build_vectorstore import init_vector_store
 
 
 def load_attack_tools(attack_tools_path: Path) -> Dict[str, Dict]:

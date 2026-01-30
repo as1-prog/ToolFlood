@@ -25,13 +25,12 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 import pandas as pd
 from loguru import logger
 
-# Allow running this file directly (python rsi/run_experiment.py) without
-# installing the package, by adding the repository root to sys.path.
-_REPO_ROOT = Path(__file__).resolve().parents[1]
+# Allow running this file directly without installing the package
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from experiments.common import (
+from src.experiments.common import (
     evaluate_queries,
     get_completed_combinations,
     limit_queries,
@@ -39,13 +38,13 @@ from experiments.common import (
     merge_tools,
     write_results_to_disk,
 )
-from toolflood.agent import VictimAgent
-from toolflood.metrics import (
+from src.agent import VictimAgent
+from src.metrics import (
     calculate_asr,
     calculate_mean_domination,
     calculate_tdr,
 )
-from toolflood.utils import (
+from src.utils import (
     Tool,
     get_base_path,
     init_embedding_model,
@@ -57,9 +56,9 @@ from toolflood.utils import (
     load_vector_store,
     resolve_path,
 )
-from scripts.build_vectorstore import init_vector_store
+from src.scripts.build_vectorstore import init_vector_store
 
-from rsi.attack import (
+from src.attacks.rsi_attack import (
     RSIAttack,
     RSIConfig,
     load_rsi_attack_config,

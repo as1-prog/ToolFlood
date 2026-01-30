@@ -24,27 +24,27 @@ from typing import Dict, List, Optional
 import pandas as pd
 from tqdm import tqdm
 
-# Add parent directory to path for scripts import
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add repo root to path for src imports
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 # pylint: disable=wrong-import-position
 from loguru import logger  # noqa: E402
 
-from experiments.common import (  # noqa: E402
+from src.experiments.common import (  # noqa: E402
     evaluate_queries,
     get_completed_combinations,
     load_existing_results,
     merge_tools,
     write_results_to_disk,
 )
-from toolflood.agent import VictimAgent  # noqa: E402
-from toolflood.attack import ToolFloodAttack  # noqa: E402
-from toolflood.metrics import (  # noqa: E402
+from src.agent import VictimAgent  # noqa: E402
+from src.attacks.toolflood_attack import ToolFloodAttack  # noqa: E402
+from src.metrics import (  # noqa: E402
     calculate_asr,
     calculate_tdr,
     calculate_mean_domination,
 )
-from toolflood.utils import (  # noqa: E402
+from src.utils import (  # noqa: E402
     Tool,
     get_base_path,
     init_embedding_model,
@@ -58,7 +58,7 @@ from toolflood.utils import (  # noqa: E402
     load_vector_store,
     resolve_path,
 )
-from scripts.build_vectorstore import init_vector_store  # noqa: E402
+from src.scripts.build_vectorstore import init_vector_store  # noqa: E402
 
 
 def generate_attacker_tools_for_domain(

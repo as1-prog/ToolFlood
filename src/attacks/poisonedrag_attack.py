@@ -21,13 +21,12 @@ import numpy as np
 from loguru import logger
 from pydantic import BaseModel, Field
 
-# Allow running this file directly (python poisonrag/attack.py) without installing
-# the package, by adding the repository root to sys.path.
-_REPO_ROOT = Path(__file__).resolve().parents[1]
+# Allow running this file directly without installing the package
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from toolflood.utils import (
+from src.utils import (
     Tool,
     GeneratedTool,
     cosine_distance,

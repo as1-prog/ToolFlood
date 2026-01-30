@@ -17,7 +17,7 @@ from langchain_community.vectorstores.faiss import FAISS
 from langchain_core.documents import Document
 from loguru import logger
 
-from toolflood.utils import (
+from src.utils import (
     get_base_path,
     get_data_dir,
     init_embedding_model,

@@ -19,13 +19,13 @@ from langchain_community.vectorstores.utils import DistanceStrategy
 from langchain_core.documents import Document
 from loguru import logger
 
-# Ensure project root is on the Python path so `toolflood` can be imported
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+# Ensure repo root is on the Python path for src imports
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from toolflood.toolflood_attack import ToolFloodAttack  # noqa: E402
-from toolflood.utils import (  # noqa: E402
+from src.attacks.toolflood_attack import ToolFloodAttack  # noqa: E402
+from src.utils import (  # noqa: E402
     Tool,
     get_base_path,
     init_embedding_model,

@@ -17,9 +17,9 @@ from loguru import logger
 from tqdm import tqdm
 
 if TYPE_CHECKING:
-    from toolflood.agent import VictimAgent
+    from src.agent import VictimAgent
 
-from toolflood.utils import Tool
+from src.utils import Tool
 
 
 def merge_tools(

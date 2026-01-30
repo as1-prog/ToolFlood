@@ -17,7 +17,7 @@ import numpy as np
 from loguru import logger
 from tqdm import tqdm
 
-from toolflood.utils import GeneratedTools, Tool, cosine_distance as _cosine_distance
+from src.utils import GeneratedTools, Tool, cosine_distance as _cosine_distance
 
 
 class ToolFloodAttack:
@@ -86,88 +86,6 @@ class ToolFloodAttack:
         self.budget_N = budget_N
         self.use_proximity_sampling = use_proximity_sampling
         self.max_concurrent_iterations = max_concurrent_iterations
-
-    def _generate_descriptions(
-        self,
-        query: str,
-    ) -> List[tuple[str, str]]:
-        """
-        Generate tool descriptions for a single query.
-
-        Note: Delegates to sample-based generation for compatibility.
-        """
-        query_embedding = np.array([self.embedding_model.embed_query(query)])
-        scored = self._generate_descriptions_for_sample(
-            [query], query_embedding
-        )
-        return [(name, desc) for _, name, desc in scored]
-
-    def _generate_descriptions_for_sample(
-        self,
-        sample_queries: List[str],
-        query_embeddings: np.ndarray,
-    ) -> List[tuple[float, str, str]]:
-        """
-        Generate tool names and descriptions using LLM for a sample of queries.
-
-        Args:
-            sample_queries: List of query strings in the sample
-            query_embeddings: Embeddings of all queries in the sample
-
-        Returns:
-            List of (distance, tool_name, description) tuples
-        """
-        # Prepare query input for LLM
-        query_input = "\n".join(f"- {query}" for query in sample_queries)
-
-        prompt = f"""
-Generate {self.tools_to_generate_per_sample} tool names and descriptions
-that are similar and relevant to the following queries:
-
-{query_input}
-
-For each tool, provide:
-- A concise tool name (one or two words, no spaces or use underscores)
-- A brief description (one sentence) explaining what the tool does
-
-Generate exactly {self.tools_to_generate_per_sample} tools.
-"""
-
-        logger.debug(
-            f"Generating {self.tools_to_generate_per_sample} tools for "
-            f"sample with {len(sample_queries)} queries"
-        )
-
-        # Generate tools using LLM
-        structured_llm = self.llm_optimizer.with_structured_output(
-            GeneratedTools
-        )
-        result = structured_llm.invoke(prompt)
-
-        # Score tools by minimum distance to any query in sample
-        scored_tools = []
-        for tool in result.tools:
-            v_tool = np.array(
-                self.embedding_model.embed_query(tool.description)
-            )
-            # Minimum distance to any query in sample (closest query)
-            min_distance = np.min([
-                self.cosine_distance(v_tool, q_emb)
-                for q_emb in query_embeddings
-            ])
-            scored_tools.append((min_distance, tool.name, tool.description))
-
-        # Filter by distance threshold if enabled
-        if self.enable_distance_filtering:
-            scored_tools = [
-                (dist, name, desc)
-                for dist, name, desc in scored_tools
-                if dist <= self.max_distance_threshold
-            ]
-
-        # Sort by distance
-        scored_tools.sort(key=lambda x: x[0])
-        return scored_tools
 
     async def _run_iteration_async(
         self,
@@ -345,7 +263,7 @@ Generate exactly {self.tools_to_generate_per_sample} tools.
         query_embeddings: np.ndarray,
     ) -> List[tuple[float, str, str]]:
         """
-        Async version of _generate_descriptions_for_sample.
+        Generate tool names and descriptions using LLM for a sample of queries.
 
         Args:
             sample_queries: List of query strings in the sample
