@@ -24,9 +24,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.attacks.toolflood_attack import ToolFloodAttack  # noqa: E402
 from src.utils import (  # noqa: E402
     Tool,
+    cosine_distance,
     get_base_path,
     init_embedding_model,
     load_config,
@@ -69,9 +69,7 @@ def compute_query_thresholds(
             closest_tool_emb = np.array(
                 embedding_model.embed_query(closest_tool_description)
             )
-            closest_distance = ToolFloodAttack.cosine_distance(
-                query_emb, closest_tool_emb
-            )
+            closest_distance = cosine_distance(query_emb, closest_tool_emb)
 
             query_thresholds.append(closest_distance)
         else:

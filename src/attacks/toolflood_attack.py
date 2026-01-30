@@ -83,17 +83,6 @@ class ToolFloodAttack:
             ])
         return self._cached_query_embeddings
 
-    @staticmethod
-    def _compute_distances(
-        tool_embedding: np.ndarray, query_embeddings: np.ndarray
-    ) -> np.ndarray:
-        """Vectorized cosine distance computation."""
-        normalized_tool_embedding = tool_embedding / (np.linalg.norm(tool_embedding) + 1e-10)
-        query_norms = np.linalg.norm(query_embeddings, axis=1, keepdims=True) + 1e-10
-        cosine_similarities = (query_embeddings @ normalized_tool_embedding) / query_norms.squeeze()
-        cosine_distances = 1.0 - np.clip(cosine_similarities, -1.0, 1.0)
-        return cosine_distances
-
     async def _embed_async(self, text: str) -> np.ndarray:
         """Async embedding wrapper."""
         embedding_result = await asyncio.to_thread(
@@ -137,7 +126,9 @@ Each tool must:
         tool_candidates = []
         for generated_tool in generation_result.tools:
             tool_embedding = await self._embed_async(generated_tool.description)
-            distances_to_queries = self._compute_distances(tool_embedding, sample_query_embeddings)
+            distances_to_queries = np.array([
+                cosine_distance(tool_embedding, q) for q in sample_query_embeddings
+            ])
             minimum_distance = float(np.min(distances_to_queries))
             
             tool_candidates.append(ToolCandidate(
@@ -220,9 +211,10 @@ Each tool must:
         
         for candidate in candidate_pool:
             # Compute distances to available queries
-            distances_to_uncovered = self._compute_distances(
-                candidate.embedding_vector, uncovered_query_embeddings
-            )
+            distances_to_uncovered = np.array([
+                cosine_distance(candidate.embedding_vector, q)
+                for q in uncovered_query_embeddings
+            ])
             
             # Find covered queries
             newly_covered_indices = [
