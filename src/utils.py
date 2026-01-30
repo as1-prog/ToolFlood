@@ -41,44 +41,21 @@ class GeneratedTools(BaseModel):
     tools: List[GeneratedTool]
 
 
-class ToolFloodAttackConfig(BaseModel):
-    """Configuration for ToolFlood attack."""
-    tools_per_query: int = Field(
-        description="Number of attacker tools per query (top-k)"
-    )
-    sample_size: int = Field(
-        default=10,
-        description="Number of queries to sample in each Phase 1 iteration"
-    )
-    tools_to_generate_per_sample: Optional[int] = Field(
+class ToolFloodConfig(BaseModel):
+    """Flat configuration for ToolFlood attack (loaded from config.toolflood)."""
+    total_tool_budget: Optional[int] = Field(
         default=None,
         description=(
-            "Number of tools to generate per sample before filtering. "
-            "If None, defaults to tools_per_query"
+            "Budget for total number of tools to generate. "
+            "If set, limits the number of tools generated"
         )
-    )
-    max_iterations: int = Field(
-        default=20,
-        description="Maximum number of iterations for Phase 1"
-    )
-    max_concurrent_iterations: int = Field(
-        default=5,
-        description="Maximum number of concurrent iterations in Phase 1 (parallelization)"
-    )
-
-
-class AttackConfig(BaseModel):
-    """Configuration for attack script."""
-    attack_method: str = Field(
-        default="toolflood",
-        description="Attack method to use: 'toolflood' for ToolFlood attack"
-    )
-    max_distance_threshold: float = Field(
-        default=0.4,
-        description="Maximum allowed distance between query and generated tool."
     )
     attacker_tools_output_path: str = Field(
         description="Output JSON path for attacker tools"
+    )
+    max_embedding_distance: float = Field(
+        default=0.4,
+        description="Maximum allowed embedding distance between query and generated tool."
     )
     embedding_model: Optional[str] = Field(
         default=None,
@@ -94,28 +71,28 @@ class AttackConfig(BaseModel):
             "If None, uses first model in models dict"
         )
     )
-    budget_N: Optional[int] = Field(
+    num_tools_per_query: int = Field(
+        description="Number of attacker tools per query (top-k)"
+    )
+    query_sample_size: int = Field(
+        default=10,
+        description="Number of queries to sample in each Phase 1 iteration"
+    )
+    num_tools_per_sample: Optional[int] = Field(
         default=None,
         description=(
-            "Budget for total number of tools to generate. "
-            "If set, limits the number of tools generated"
+            "Number of tools to generate per sample before filtering. "
+            "If None, defaults to num_tools_per_query"
         )
     )
-    toolflood: Optional[ToolFloodAttackConfig] = Field(
-        default=None,
-        description="Configuration for ToolFlood attack"
+    max_generation_iterations: int = Field(
+        default=20,
+        description="Maximum number of iterations for Phase 1"
     )
-
-    def model_post_init(self, __context):
-        """Validate required configs are provided based on attack_method."""
-        if (
-            self.attack_method == "toolflood"
-            and self.toolflood is None
-        ):
-            raise ValueError(
-                "toolflood config is required when "
-                "attack_method is 'toolflood'"
-            )
+    max_concurrent_tasks: int = Field(
+        default=5,
+        description="Maximum number of concurrent tasks in Phase 1 (parallelization)"
+    )
 
 
 class ExperimentConfig(BaseModel):
@@ -210,20 +187,11 @@ def load_config(config_path: Path) -> Dict[str, Any]:
         return yaml.safe_load(f) or {}
 
 
-def load_attack_config(config_path: Path) -> AttackConfig:
-    """Load attack configuration from YAML file."""
+def load_toolflood_config(config_path: Path) -> ToolFloodConfig:
+    """Load ToolFlood configuration from YAML file (config.toolflood)."""
     cfg = load_config(config_path)
-    attack_cfg = cfg.get("attack", {})
-
-    # Handle nested structure: create config classes for each attack method
-    config_dict = attack_cfg.copy()
-
-    if "toolflood" in config_dict:
-        toolflood_dict = config_dict.pop("toolflood", {})
-        if toolflood_dict:
-            config_dict["toolflood"] = ToolFloodAttackConfig(**toolflood_dict)
-
-    return AttackConfig(**config_dict)
+    toolflood_dict = cfg.get("toolflood", {})
+    return ToolFloodConfig(**toolflood_dict)
 
 
 def load_experiment_config(config_path: Path) -> ExperimentConfig:
@@ -241,10 +209,13 @@ def load_agent_config(config_path: Path) -> AgentConfig:
 
 
 def get_base_path(config_path: Path) -> Path:
-    """Get base path from config file location."""
-    if config_path.parent.name == "config":
-        return config_path.parent.parent
-    return config_path.parent
+    """Get base path from config file location (project root)."""
+    parent = config_path.parent
+    if parent.name == "config":
+        return parent.parent
+    if parent.name == "configs":
+        return parent.parent.parent
+    return parent
 
 
 def resolve_path(base: Path, maybe_rel: str) -> Path:

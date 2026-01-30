@@ -25,24 +25,24 @@ class ToolCandidate:
     """Tool with metadata for selection."""
     name: str
     description: str
-    distance: float
-    embedding: np.ndarray
+    min_distance_to_queries: float
+    embedding_vector: np.ndarray
 
 
 @dataclass
 class AttackConfig:
     """Configuration for ToolFlood attack."""
-    tools_per_query: int
-    sample_size: int = 10
-    tools_per_sample: Optional[int] = None
-    max_iterations: int = 20
-    max_distance: float = 0.4
-    budget: Optional[int] = None
-    max_concurrent: int = 5
+    num_tools_per_query: int
+    query_sample_size: int = 10
+    num_tools_per_sample: Optional[int] = None
+    max_generation_iterations: int = 20
+    max_embedding_distance: float = 0.4
+    total_tool_budget: Optional[int] = None
+    max_concurrent_tasks: int = 5
 
     def __post_init__(self):
-        if self.tools_per_sample is None:
-            self.tools_per_sample = self.tools_per_query
+        if self.num_tools_per_sample is None:
+            self.num_tools_per_sample = self.num_tools_per_query
 
 
 class ToolFloodAttack:
@@ -50,62 +50,64 @@ class ToolFloodAttack:
 
     def __init__(
         self,
-        queries: List[str],
+        target_queries: List[str],
         embedding_model,
         llm_optimizer,
-        config: Optional[AttackConfig] = None,
-        **kwargs,
+        attack_config: Optional[AttackConfig] = None,
+        **config_kwargs,
     ):
         """
         Initialize attack.
         
         Args:
-            queries: Target queries
+            target_queries: Target queries to cover
             embedding_model: Embedding function
             llm_optimizer: LLM for tool generation
-            config: Attack configuration (or pass kwargs)
+            attack_config: Attack configuration (or pass config_kwargs)
         """
-        self.queries = queries
+        self.target_queries = target_queries
         self.embedding_model = embedding_model
-        self.llm = llm_optimizer
-        self.config = config or AttackConfig(**kwargs)
+        self.llm_optimizer = llm_optimizer
+        self.attack_config = attack_config or AttackConfig(**config_kwargs)
         
         # Precompute query embeddings
-        self._query_embeddings: Optional[np.ndarray] = None
+        self._cached_query_embeddings: Optional[np.ndarray] = None
 
     @property
     def query_embeddings(self) -> np.ndarray:
         """Lazy-load and cache query embeddings."""
-        if self._query_embeddings is None:
-            logger.info(f"Computing embeddings for {len(self.queries)} queries")
-            self._query_embeddings = np.array([
-                self.embedding_model.embed_query(q) for q in self.queries
+        if self._cached_query_embeddings is None:
+            logger.info(f"Computing embeddings for {len(self.target_queries)} queries")
+            self._cached_query_embeddings = np.array([
+                self.embedding_model.embed_query(query) for query in self.target_queries
             ])
-        return self._query_embeddings
+        return self._cached_query_embeddings
 
     @staticmethod
     def _compute_distances(
-        tool_emb: np.ndarray, query_embs: np.ndarray
+        tool_embedding: np.ndarray, query_embeddings: np.ndarray
     ) -> np.ndarray:
         """Vectorized cosine distance computation."""
-        tool_norm = tool_emb / (np.linalg.norm(tool_emb) + 1e-10)
-        query_norms = np.linalg.norm(query_embs, axis=1, keepdims=True) + 1e-10
-        similarities = (query_embs @ tool_norm) / query_norms.squeeze()
-        return 1.0 - np.clip(similarities, -1.0, 1.0)
+        normalized_tool_embedding = tool_embedding / (np.linalg.norm(tool_embedding) + 1e-10)
+        query_norms = np.linalg.norm(query_embeddings, axis=1, keepdims=True) + 1e-10
+        cosine_similarities = (query_embeddings @ normalized_tool_embedding) / query_norms.squeeze()
+        cosine_distances = 1.0 - np.clip(cosine_similarities, -1.0, 1.0)
+        return cosine_distances
 
     async def _embed_async(self, text: str) -> np.ndarray:
         """Async embedding wrapper."""
-        return np.array(
-            await asyncio.to_thread(self.embedding_model.embed_query, text)
+        embedding_result = await asyncio.to_thread(
+            self.embedding_model.embed_query, text
         )
+        return np.array(embedding_result)
 
     async def _generate_tools(
-        self, queries: List[str]
+        self, sampled_queries: List[str]
     ) -> List[ToolCandidate]:
         """Generate and score tools for query sample."""
-        prompt = f"""Generate {self.config.tools_per_sample} tools relevant to ALL these queries:
+        generation_prompt = f"""Generate {self.attack_config.num_tools_per_sample} tools relevant to ALL these queries:
 
-{chr(10).join(f"- {q}" for q in queries)}
+{chr(10).join(f"- {query}" for query in sampled_queries)}
 
 Each tool must:
 - Work across all queries (not query-specific)
@@ -113,198 +115,225 @@ Each tool must:
 - Include exact phrases from the queries in its description
 """
 
-        structured_llm = self.llm.with_structured_output(GeneratedTools)
+        structured_llm = self.llm_optimizer.with_structured_output(GeneratedTools)
         
         # Try async invoke, fallback to sync
         try:
-            result = await (
-                structured_llm.ainvoke(prompt)
+            generation_result = await (
+                structured_llm.ainvoke(generation_prompt)
                 if hasattr(structured_llm, "ainvoke")
-                else asyncio.to_thread(structured_llm.invoke, prompt)
+                else asyncio.to_thread(structured_llm.invoke, generation_prompt)
             )
-        except Exception as e:
-            logger.warning(f"LLM invocation failed: {e}")
+        except Exception as llm_error:
+            logger.warning(f"LLM invocation failed: {llm_error}")
             return []
 
         # Embed queries in sample
-        sample_embs = np.array([
-            await self._embed_async(q) for q in queries
+        sample_query_embeddings = np.array([
+            await self._embed_async(query) for query in sampled_queries
         ])
 
         # Score and embed tools
-        candidates = []
-        for tool in result.tools:
-            tool_emb = await self._embed_async(tool.description)
-            distances = self._compute_distances(tool_emb, sample_embs)
-            min_dist = float(np.min(distances))
+        tool_candidates = []
+        for generated_tool in generation_result.tools:
+            tool_embedding = await self._embed_async(generated_tool.description)
+            distances_to_queries = self._compute_distances(tool_embedding, sample_query_embeddings)
+            minimum_distance = float(np.min(distances_to_queries))
             
-            candidates.append(ToolCandidate(
-                name=tool.name,
-                description=tool.description,
-                distance=min_dist,
-                embedding=tool_emb,
+            tool_candidates.append(ToolCandidate(
+                name=generated_tool.name,
+                description=generated_tool.description,
+                min_distance_to_queries=minimum_distance,
+                embedding_vector=tool_embedding,
             ))
 
-        return sorted(candidates, key=lambda c: c.distance)
+        return sorted(tool_candidates, key=lambda candidate: candidate.min_distance_to_queries)
 
     async def _phase1_iteration(
-        self, iteration: int, sem: asyncio.Semaphore
+        self, iteration_number: int, concurrency_semaphore: asyncio.Semaphore
     ) -> List[ToolCandidate]:
         """Single Phase 1 iteration: sample queries and generate tools."""
-        async with sem:
+        async with concurrency_semaphore:
             # Sample queries
-            n_sample = min(self.config.sample_size, len(self.queries))
-            indices = random.sample(range(len(self.queries)), n_sample)
-            sample = [self.queries[i] for i in indices]
+            num_queries_to_sample = min(
+                self.attack_config.query_sample_size, 
+                len(self.target_queries)
+            )
+            sampled_indices = random.sample(
+                range(len(self.target_queries)), 
+                num_queries_to_sample
+            )
+            sampled_queries = [self.target_queries[idx] for idx in sampled_indices]
             
             logger.debug(
-                f"Iter {iteration}: Sampled {len(sample)} queries, "
-                f"first: '{sample[0][:60]}...'"
+                f"Iter {iteration_number}: Sampled {len(sampled_queries)} queries, "
+                f"first: '{sampled_queries[0][:60]}...'"
             )
 
             # Generate tools
-            candidates = await self._generate_tools(sample)
+            generated_candidates = await self._generate_tools(sampled_queries)
             logger.info(
-                f"Iter {iteration}: Generated {len(candidates)} tools, "
-                f"best distance: {candidates[0].distance:.4f}"
-                if candidates else f"Iter {iteration}: No tools generated"
+                f"Iter {iteration_number}: Generated {len(generated_candidates)} tools, "
+                f"best distance: {generated_candidates[0].min_distance_to_queries:.4f}"
+                if generated_candidates 
+                else f"Iter {iteration_number}: No tools generated"
             )
             
-            return candidates
+            return generated_candidates
 
     async def _run_phase1(self) -> List[ToolCandidate]:
         """Phase 1: Generate tool pool via parallel sampling."""
         logger.info(
-            f"Phase 1: {self.config.max_iterations} iterations, "
-            f"up to {self.config.max_concurrent} concurrent"
+            f"Phase 1: {self.attack_config.max_generation_iterations} iterations, "
+            f"up to {self.attack_config.max_concurrent_tasks} concurrent"
         )
         
-        sem = asyncio.Semaphore(self.config.max_concurrent)
-        tasks = [
-            self._phase1_iteration(i, sem)
-            for i in range(1, self.config.max_iterations + 1)
+        concurrency_semaphore = asyncio.Semaphore(self.attack_config.max_concurrent_tasks)
+        generation_tasks = [
+            self._phase1_iteration(iteration_num, concurrency_semaphore)
+            for iteration_num in range(1, self.attack_config.max_generation_iterations + 1)
         ]
         
-        results = []
-        for coro in tqdm.as_completed(tasks, total=len(tasks), desc="Phase 1"):
-            results.extend(await coro)
+        all_generated_tools = []
+        for completed_task in tqdm.as_completed(
+            generation_tasks, 
+            total=len(generation_tasks), 
+            desc="Phase 1"
+        ):
+            all_generated_tools.extend(await completed_task)
         
-        logger.success(f"Phase 1: Generated {len(results)} tools")
-        return results
+        logger.success(f"Phase 1: Generated {len(all_generated_tools)} tools")
+        return all_generated_tools
 
     def _find_best_tool(
         self,
-        pool: List[ToolCandidate],
-        available: List[int],
-        coverage: Dict[int, int],
+        candidate_pool: List[ToolCandidate],
+        uncovered_query_indices: List[int],
+        query_coverage_counts: Dict[int, int],
     ) -> Optional[tuple[ToolCandidate, List[int]]]:
         """Find tool covering most available queries."""
-        best_tool = None
-        best_covered = []
-        best_count = 0
+        best_candidate = None
+        best_covered_indices = []
+        best_coverage_count = 0
 
-        available_embs = self.query_embeddings[available]
+        uncovered_query_embeddings = self.query_embeddings[uncovered_query_indices]
         
-        for candidate in pool:
+        for candidate in candidate_pool:
             # Compute distances to available queries
-            distances = self._compute_distances(
-                candidate.embedding, available_embs
+            distances_to_uncovered = self._compute_distances(
+                candidate.embedding_vector, uncovered_query_embeddings
             )
             
             # Find covered queries
-            covered = [
-                available[i]
-                for i, dist in enumerate(distances)
-                if dist <= self.config.max_distance
-                and coverage[available[i]] < self.config.tools_per_query
+            newly_covered_indices = [
+                uncovered_query_indices[local_idx]
+                for local_idx, distance in enumerate(distances_to_uncovered)
+                if distance <= self.attack_config.max_embedding_distance
+                and query_coverage_counts[uncovered_query_indices[local_idx]] < self.attack_config.num_tools_per_query
             ]
             
-            count = len(covered)
-            if count == 0:
+            num_newly_covered = len(newly_covered_indices)
+            if num_newly_covered == 0:
                 continue
             
             # Update best (max coverage, tie-break by distance)
-            if (
-                count > best_count
-                or (count == best_count and candidate.distance < best_tool.distance)
-            ):
-                best_tool = candidate
-                best_covered = covered
-                best_count = count
+            is_better_coverage = num_newly_covered > best_coverage_count
+            is_equal_coverage_better_distance = (
+                num_newly_covered == best_coverage_count 
+                and candidate.min_distance_to_queries < best_candidate.min_distance_to_queries
+            )
+            
+            if is_better_coverage or is_equal_coverage_better_distance:
+                best_candidate = candidate
+                best_covered_indices = newly_covered_indices
+                best_coverage_count = num_newly_covered
 
-        return (best_tool, best_covered) if best_tool else None
+        return (best_candidate, best_covered_indices) if best_candidate else None
 
     def _run_phase2(
-        self, pool: List[ToolCandidate]
+        self, candidate_pool: List[ToolCandidate]
     ) -> tuple[List[Tool], Dict[str, Any]]:
         """Phase 2: Greedy tool selection."""
         logger.info("Phase 2: Greedy selection")
         
-        coverage = {i: 0 for i in range(len(self.queries))}
-        tools = []
-        iterations = []
+        query_coverage_counts = {
+            query_idx: 0 for query_idx in range(len(self.target_queries))
+        }
+        selected_tools = []
+        selection_iterations = []
         
-        while pool:
+        while candidate_pool:
             # Check stopping conditions
-            available = [
-                i for i in range(len(self.queries))
-                if coverage[i] < self.config.tools_per_query
+            uncovered_query_indices = [
+                query_idx for query_idx in range(len(self.target_queries))
+                if query_coverage_counts[query_idx] < self.attack_config.num_tools_per_query
             ]
             
-            if not available:
+            if not uncovered_query_indices:
                 logger.info("All queries covered")
                 break
             
-            if self.config.budget and len(tools) >= self.config.budget:
+            if self.attack_config.total_tool_budget and len(selected_tools) >= self.attack_config.total_tool_budget:
                 logger.info("Budget reached")
                 break
             
             # Select best tool
-            result = self._find_best_tool(pool, available, coverage)
-            if not result:
+            selection_result = self._find_best_tool(
+                candidate_pool, uncovered_query_indices, query_coverage_counts
+            )
+            if not selection_result:
                 logger.info("No more covering tools")
                 break
             
-            candidate, covered = result
+            selected_candidate, covered_query_indices = selection_result
             
             # Update coverage
-            for idx in covered:
-                coverage[idx] += 1
+            for query_idx in covered_query_indices:
+                query_coverage_counts[query_idx] += 1
             
             # Remove tool from pool
-            pool = [c for c in pool if c is not candidate]
+            candidate_pool = [
+                candidate for candidate in candidate_pool 
+                if candidate is not selected_candidate
+            ]
             
             # Create tool
-            tool_id = f"attacker_tool_{len(tools) + 1}"
-            tools.append(Tool(
-                tool_id=tool_id,
-                name=candidate.name,
-                description=candidate.description,
+            tool_identifier = f"attacker_tool_{len(selected_tools) + 1}"
+            selected_tools.append(Tool(
+                tool_id=tool_identifier,
+                name=selected_candidate.name,
+                description=selected_candidate.description,
             ))
             
             # Log progress
-            n_full = sum(1 for c in coverage.values() if c >= self.config.tools_per_query)
-            iterations.append({
-                "tool_id": tool_id,
-                "coverage": len(covered),
-                "queries_covered": n_full,
-                "pool_remaining": len(pool),
+            num_fully_covered_queries = sum(
+                1 for coverage_count in query_coverage_counts.values() 
+                if coverage_count >= self.attack_config.num_tools_per_query
+            )
+            selection_iterations.append({
+                "tool_id": tool_identifier,
+                "coverage": len(covered_query_indices),
+                "queries_covered": num_fully_covered_queries,
+                "pool_remaining": len(candidate_pool),
             })
             
-            if len(tools) % 10 == 0 or len(covered) > 5:
+            if len(selected_tools) % 10 == 0 or len(covered_query_indices) > 5:
                 logger.info(
-                    f"Selected {len(tools)} tools, "
-                    f"{n_full}/{len(self.queries)} queries fully covered"
+                    f"Selected {len(selected_tools)} tools, "
+                    f"{num_fully_covered_queries}/{len(self.target_queries)} queries fully covered"
                 )
         
-        logger.success(f"Phase 2: Selected {len(tools)} tools")
+        logger.success(f"Phase 2: Selected {len(selected_tools)} tools")
         
-        return tools, {
-            "iterations": iterations,
-            "total_tools": len(tools),
-            "queries_covered": sum(
-                1 for c in coverage.values() if c >= self.config.tools_per_query
-            ),
+        num_fully_covered_queries = sum(
+            1 for coverage_count in query_coverage_counts.values() 
+            if coverage_count >= self.attack_config.num_tools_per_query
+        )
+        
+        return selected_tools, {
+            "iterations": selection_iterations,
+            "total_tools": len(selected_tools),
+            "queries_covered": num_fully_covered_queries,
         }
 
     def attack(self) -> tuple[List[Tool], Dict[str, Any]]:
@@ -312,26 +341,28 @@ Each tool must:
         Execute ToolFlood attack.
         
         Returns:
-            (tools, results) where results contains phase statistics
+            (selected_tools, attack_results) where attack_results contains phase statistics
         """
         logger.info(
-            f"ToolFlood: {len(self.queries)} queries, "
-            f"{self.config.tools_per_query} tools/query, "
-            f"threshold={self.config.max_distance}"
+            f"ToolFlood: {len(self.target_queries)} queries, "
+            f"{self.attack_config.num_tools_per_query} tools/query, "
+            f"threshold={self.attack_config.max_embedding_distance}"
         )
         
         # Phase 1: Generate candidates
-        pool = asyncio.run(self._run_phase1())
+        candidate_pool = asyncio.run(self._run_phase1())
         
         # Phase 2: Select tools
-        tools, phase2_results = self._run_phase2(pool)
+        selected_tools, phase2_results = self._run_phase2(candidate_pool)
         
-        return tools, {
-            "phase1": {"generated": len(pool)},
+        attack_results = {
+            "phase1": {"generated": len(candidate_pool)},
             "phase2": phase2_results,
             "config": {
-                "tools_per_query": self.config.tools_per_query,
-                "max_distance": self.config.max_distance,
-                "budget": self.config.budget,
+                "num_tools_per_query": self.attack_config.num_tools_per_query,
+                "max_embedding_distance": self.attack_config.max_embedding_distance,
+                "total_tool_budget": self.attack_config.total_tool_budget,
             },
         }
+        
+        return selected_tools, attack_results

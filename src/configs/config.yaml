@@ -51,20 +51,17 @@ embeddings:
       provider: "huggingface"
 
 
-attack:
-  attack_method: "toolflood"
-  budget_N: null
+toolflood:
+  num_tools_per_query: 5
+  query_sample_size: 20
+  num_tools_per_sample: 10
+  max_generation_iterations: 1000
+  max_embedding_distance: 0.3
+  total_tool_budget: null
+  max_concurrent_tasks: 20
   attacker_tools_output_path: "./output/attacker_tools.json"
-  max_distance_threshold: 0.3
   embedding_model: "text-embedding-3-small"
   llm_optimizer_model: "gpt-4o-mini"
-
-  toolflood:
-    tools_per_query: 5
-    sample_size: 20
-    tools_to_generate_per_sample: 10
-    max_iterations: 1000
-    max_concurrent_iterations: 20
 
 experiment:
   benign_data_directory: "./data/ToolE"

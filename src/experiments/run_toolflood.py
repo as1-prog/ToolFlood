@@ -38,7 +38,7 @@ from src.experiments.common import (  # noqa: E402
     write_results_to_disk,
 )
 from src.agent import VictimAgent  # noqa: E402
-from src.attacks.toolflood_attack import ToolFloodAttack  # noqa: E402
+from src.attacks.toolflood_attack import AttackConfig as ToolFloodAttackConfigClass, ToolFloodAttack  # noqa: E402
 from src.metrics import (  # noqa: E402
     calculate_asr,
     calculate_tdr,
@@ -50,11 +50,11 @@ from src.utils import (  # noqa: E402
     init_embedding_model,
     init_llm,
     load_agent_config,
-    load_attack_config,
     load_config,
     load_experiment_config,
     load_queries_from_tasks,
     load_tools,
+    load_toolflood_config,
     load_vector_store,
     resolve_path,
 )
@@ -101,40 +101,31 @@ def generate_attacker_tools_for_domain(
     llm_optimizer = init_llm(
         cfg, model_name=attack_cfg.llm_optimizer_model
     )
-    if attack_cfg.attack_method == "toolflood":
-        toolflood_cfg = attack_cfg.toolflood
-        attack = ToolFloodAttack(
-            train_queries,
-            attack_embedding_model,
-            llm_optimizer,
-            toolflood_cfg.tools_per_query,
-            sample_size=toolflood_cfg.sample_size,
-            tools_to_generate_per_sample=(
-                toolflood_cfg.tools_to_generate_per_sample
-            ),
-            max_iterations=toolflood_cfg.max_iterations,
-            max_distance_threshold=attack_cfg.max_distance_threshold,
-            budget_N=attack_cfg.budget_N,
-            max_concurrent_iterations=toolflood_cfg.max_concurrent_iterations,
-        )
-    else:
-        raise ValueError(
-            f"Unknown attack method: {attack_cfg.attack_method}. "
-            "Supported method: 'toolflood'"
-        )
+    attack_config = ToolFloodAttackConfigClass(
+        num_tools_per_query=attack_cfg.num_tools_per_query,
+        query_sample_size=attack_cfg.query_sample_size,
+        num_tools_per_sample=attack_cfg.num_tools_per_sample,
+        max_generation_iterations=attack_cfg.max_generation_iterations,
+        max_embedding_distance=attack_cfg.max_embedding_distance,
+        total_tool_budget=attack_cfg.total_tool_budget,
+        max_concurrent_tasks=attack_cfg.max_concurrent_tasks,
+    )
+    attack = ToolFloodAttack(
+        train_queries,
+        attack_embedding_model,
+        llm_optimizer,
+        attack_config=attack_config,
+    )
 
     attacker_tools, attack_results = attack.attack()
-    
-    # Extract phase 2 query coverage for each tool
+
+    # Extract phase 2 query coverage for each tool (phase2 is dict with "iterations" list)
     phase2_coverage = {}
-    phase2_results = attack_results.get("phase2", [])
-    for phase2_result in phase2_results:
-        selected_tool = phase2_result.get("selected_tool", {})
-        tool_name = selected_tool.get("name")
-        coverage_count = selected_tool.get("coverage_count", 0)
-        if tool_name:
-            phase2_coverage[tool_name] = coverage_count
-    
+    phase2_data = attack_results.get("phase2", {})
+    iterations = phase2_data.get("iterations", [])
+    for tool, iter_info in zip(attacker_tools, iterations):
+        phase2_coverage[tool.name] = iter_info.get("coverage", 0)
+
     return attacker_tools, train_queries, test_queries, task_str, phase2_coverage
 
 
@@ -427,12 +418,12 @@ def main() -> int:
     cfg_path = Path(args.config).resolve()
     cfg = load_config(cfg_path)
     exp_cfg = load_experiment_config(cfg_path)
-    attack_cfg = load_attack_config(cfg_path)
+    attack_cfg = load_toolflood_config(cfg_path)
     agent_cfg = load_agent_config(cfg_path)
 
     base_path = get_base_path(cfg_path)
     benign_data_dir = resolve_path(base_path, exp_cfg.benign_data_directory)
-    experiment_dir = Path(exp_cfg.output_directory).resolve()
+    experiment_dir = resolve_path(base_path, exp_cfg.output_directory)
     experiment_dir.mkdir(parents=True, exist_ok=True)
 
     # Paths for results files
