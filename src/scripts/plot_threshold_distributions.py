@@ -30,6 +30,7 @@ from src.utils import (  # noqa: E402
     get_base_path,
     init_embedding_model,
     load_config,
+    load_models,
     load_queries_from_tasks,
     load_tools,
 )
@@ -211,14 +212,17 @@ def main() -> int:
     """Main function to compute and plot threshold distributions."""
     logger.info("Starting threshold distribution analysis...")
 
-    # Load config from top-level `config` directory
+    # Load config and models from top-level `config` directory
     config_path = PROJECT_ROOT / "config" / "config.yaml"
+    models_path = PROJECT_ROOT / "config" / "models.yaml"
     cfg = load_config(config_path)
+    models_cfg = load_models(models_path)
+    full_cfg = {**cfg, **models_cfg}
     base_path = get_base_path(config_path)
 
     # Initialize embedding model (using text-embedding-3-small as default)
     embedding_model = init_embedding_model(
-        cfg, model_name="text-embedding-3-small"
+        full_cfg, model_name="text-embedding-3-small"
     )
 
     # Compute thresholds for ToolBench

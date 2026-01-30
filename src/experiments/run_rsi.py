@@ -10,7 +10,7 @@ This script:
 5. Reports ASR, TDR, and Mean Domination metrics.
 
 CLI:
-    python -m rsi.run_experiment --config config/config_rsi.yaml
+    python -m rsi.run_experiment --config config/config.yaml
 """
 
 from __future__ import annotations
@@ -51,6 +51,7 @@ from src.utils import (
     init_llm,
     load_config,
     load_experiment_config,
+    load_models,
     load_queries_from_tasks,
     load_tools,
     load_vector_store,
@@ -228,15 +229,18 @@ async def _run_experiment_for_task(
     return result
 
 
-async def _run_single_experiment(cfg_path: Path) -> int:
-    """Run RSI experiments from a config file, organized by task."""
+async def _run_single_experiment(cfg_path: Path, models_path: Path) -> int:
+    """Run RSI experiments from config and models files, organized by task."""
     cfg = load_config(cfg_path)
+    models_cfg = load_models(models_path)
+    full_cfg = {**cfg, **models_cfg}
     exp_cfg = load_experiment_config(cfg_path)
     rsi_cfg = load_rsi_attack_config(cfg_path)
 
     base_path = get_base_path(cfg_path)
     benign_data_dir = resolve_path(
-        base_path, exp_cfg.benign_data_directory
+        base_path,
+        rsi_cfg.benign_data_directory or exp_cfg.benign_data_directory,
     )
     output_dir = resolve_path(base_path, rsi_cfg.output_directory)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -281,7 +285,7 @@ async def _run_single_experiment(cfg_path: Path) -> int:
             "No generator_model specified, using first victim model: "
             f"{generator_model_name}"
         )
-    llm_generator = init_llm(cfg, model_name=generator_model_name)
+    llm_generator = init_llm(full_cfg, model_name=generator_model_name)
     logger.info(f"Using LLM generator: {generator_model_name}")
 
     # Determine tasks to process
@@ -346,7 +350,7 @@ async def _run_single_experiment(cfg_path: Path) -> int:
     victim_embedding_models: Dict[str, Any] = {}
     for name in victim_embedding_model_names:
         victim_embedding_models[name] = init_embedding_model(
-            cfg, model_name=name
+            full_cfg, model_name=name
         )
 
     # Build shared vector stores per embedding model
@@ -407,7 +411,7 @@ async def _run_single_experiment(cfg_path: Path) -> int:
                     )
                     continue
 
-                victim_llm = init_llm(cfg, model_name=victim_model_name)
+                victim_llm = init_llm(full_cfg, model_name=victim_model_name)
                 result = await _run_experiment_for_task(
                     task_name=task_name,
                     task_str=task_str,
@@ -450,13 +454,21 @@ def main() -> int:
     )
     ap.add_argument(
         "--config",
-        required=True,
-        help="Path to RSI config YAML (e.g., config/config_rsi.yaml)",
+        type=Path,
+        default=Path("config/config.yaml"),
+        help="Path to config YAML (default: config/config.yaml)",
+    )
+    ap.add_argument(
+        "--models",
+        type=Path,
+        default=Path("config/models.yaml"),
+        help="Path to models YAML (default: config/models.yaml)",
     )
     args = ap.parse_args()
 
-    cfg_path = Path(args.config).resolve()
-    return asyncio.run(_run_single_experiment(cfg_path))
+    cfg_path = args.config.resolve()
+    models_path = args.models.resolve()
+    return asyncio.run(_run_single_experiment(cfg_path, models_path))
 
 
 if __name__ == "__main__":

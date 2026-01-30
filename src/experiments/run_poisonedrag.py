@@ -12,7 +12,7 @@ much simpler PoisonRAG-style attack:
 5. Reports ASR, TDR, and Mean Domination metrics.
 
 CLI:
-    python -m poisonrag.run_experiment --config config/config_poisonrag.yaml
+    python -m poisonrag.run_experiment --config config/config.yaml
 """
 
 from __future__ import annotations
@@ -54,6 +54,7 @@ from src.utils import (
     load_agent_config,
     load_config,
     load_experiment_config,
+    load_models,
     load_queries_from_tasks,
     load_tools,
     load_vector_store,
@@ -286,9 +287,11 @@ async def run_experiment_for_model(
     return result
 
 
-async def _run_single_experiment(cfg_path: Path) -> int:
-    """Run PoisonRAG experiments from a config file, organized by task."""
+async def _run_single_experiment(cfg_path: Path, models_path: Path) -> int:
+    """Run PoisonRAG experiments from config and models files, organized by task."""
     cfg = load_config(cfg_path)
+    models_cfg = load_models(models_path)
+    full_cfg = {**cfg, **models_cfg}
     exp_cfg = load_experiment_config(cfg_path)
     agent_cfg = load_agent_config(cfg_path)
     poisonrag_cfg = load_poisonrag_attack_config(cfg_path)
@@ -332,7 +335,7 @@ async def _run_single_experiment(cfg_path: Path) -> int:
             "No generator_model specified, using victim model: "
             f"{generator_model_name}"
         )
-    llm_generator = init_llm(cfg, model_name=generator_model_name)
+    llm_generator = init_llm(full_cfg, model_name=generator_model_name)
     logger.info(f"Using LLM generator: {generator_model_name}")
 
     # Determine tasks to process
@@ -377,9 +380,13 @@ async def _run_single_experiment(cfg_path: Path) -> int:
     attack_embedding_models: Dict[str, Any] = {}
     victim_embedding_models: Dict[str, Any] = {}
     for name in attack_embedding_model_names:
-        attack_embedding_models[name] = init_embedding_model(cfg, model_name=name)
+        attack_embedding_models[name] = init_embedding_model(
+            full_cfg, model_name=name
+        )
     for name in victim_embedding_model_names:
-        victim_embedding_models[name] = init_embedding_model(cfg, model_name=name)
+        victim_embedding_models[name] = init_embedding_model(
+            full_cfg, model_name=name
+        )
 
     total_combinations = (
         len(tasks)
@@ -483,7 +490,7 @@ async def _run_single_experiment(cfg_path: Path) -> int:
                             model_name,
                             task_str,
                             test_queries,
-                            cfg,
+                            full_cfg,
                             exp_cfg,
                             agent_cfg,
                             victim_embedding_model,
@@ -552,13 +559,21 @@ def main() -> int:
     )
     ap.add_argument(
         "--config",
-        required=True,
-        help="Path to PoisonRAG config YAML (e.g., config/config_poisonrag.yaml)",
+        type=Path,
+        default=Path("config/config.yaml"),
+        help="Path to config YAML (default: config/config.yaml)",
+    )
+    ap.add_argument(
+        "--models",
+        type=Path,
+        default=Path("config/models.yaml"),
+        help="Path to models YAML (default: config/models.yaml)",
     )
     args = ap.parse_args()
 
-    cfg_path = Path(args.config).resolve()
-    return asyncio.run(_run_single_experiment(cfg_path))
+    cfg_path = args.config.resolve()
+    models_path = args.models.resolve()
+    return asyncio.run(_run_single_experiment(cfg_path, models_path))
 
 
 if __name__ == "__main__":

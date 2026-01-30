@@ -35,6 +35,7 @@ from src.utils import (
     init_llm,
     load_config,
     load_experiment_config,
+    load_models,
     load_queries_from_tasks,
     load_tools,
     resolve_path,
@@ -421,11 +422,25 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description="PoisonRAG attack: generate attacker tools"
     )
-    ap.add_argument("--config", required=True, help="Path to config YAML")
+    ap.add_argument(
+        "--config",
+        type=Path,
+        default=Path("config/config.yaml"),
+        help="Path to config YAML",
+    )
+    ap.add_argument(
+        "--models",
+        type=Path,
+        default=Path("config/models.yaml"),
+        help="Path to models YAML",
+    )
     args = ap.parse_args()
 
-    cfg_path = Path(args.config).resolve()
+    cfg_path = args.config.resolve()
+    models_path = args.models.resolve()
     cfg = load_config(cfg_path)
+    models_cfg = load_models(models_path)
+    full_cfg = {**cfg, **models_cfg}
     exp_cfg = load_experiment_config(cfg_path)
     poisonrag_cfg = load_poisonrag_attack_config(cfg_path)
 
@@ -453,7 +468,7 @@ def main() -> int:
 
     # Initialize embedding model
     embedding_model = init_embedding_model(
-        cfg, model_name=poisonrag_cfg.embedding_model
+        full_cfg, model_name=poisonrag_cfg.embedding_model
     )
 
     # Initialize LLM generator for attack
@@ -462,7 +477,7 @@ def main() -> int:
             "generator_model is required in poisonrag_attack config. "
             "Provide an LLM model name for generating tool descriptions."
         )
-    llm_generator = init_llm(cfg, model_name=poisonrag_cfg.generator_model)
+    llm_generator = init_llm(full_cfg, model_name=poisonrag_cfg.generator_model)
     logger.info(f"Using LLM generator: {poisonrag_cfg.generator_model}")
 
     # Create PoisonRAG config

@@ -52,6 +52,7 @@ from src.utils import (  # noqa: E402
     load_agent_config,
     load_config,
     load_experiment_config,
+    load_models,
     load_queries_from_tasks,
     load_tools,
     load_toolflood_config,
@@ -412,11 +413,25 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description="Run ToolFlood attack experiment and calculate ASR"
     )
-    ap.add_argument("--config", required=True, help="Path to config YAML")
+    ap.add_argument(
+        "--config",
+        type=Path,
+        default=Path("config/config.yaml"),
+        help="Path to config YAML (default: config/config.yaml)",
+    )
+    ap.add_argument(
+        "--models",
+        type=Path,
+        default=Path("config/models.yaml"),
+        help="Path to models YAML (default: config/models.yaml)",
+    )
     args = ap.parse_args()
 
-    cfg_path = Path(args.config).resolve()
+    cfg_path = args.config.resolve()
+    models_path = args.models.resolve()
     cfg = load_config(cfg_path)
+    models_cfg = load_models(models_path)
+    full_cfg = {**cfg, **models_cfg}
     exp_cfg = load_experiment_config(cfg_path)
     attack_cfg = load_toolflood_config(cfg_path)
     agent_cfg = load_agent_config(cfg_path)
@@ -454,12 +469,12 @@ def main() -> int:
 
     for emb_model_name in exp_cfg.attack_embedding_models:
         attack_embedding_models[emb_model_name] = init_embedding_model(
-            cfg, model_name=emb_model_name
+            full_cfg, model_name=emb_model_name
         )
 
     for emb_model_name in exp_cfg.victim_embedding_models:
         victim_embedding_models[emb_model_name] = init_embedding_model(
-            cfg, model_name=emb_model_name
+            full_cfg, model_name=emb_model_name
         )
 
     benign_tools = load_tools(benign_data_dir / "tools.json")
@@ -519,7 +534,7 @@ def main() -> int:
             attacker_tools, train_queries, test_queries, task_str, phase2_coverage = (
                 generate_attacker_tools_for_domain(
                     task,
-                    cfg,
+                    full_cfg,
                     exp_cfg,
                     attack_cfg,
                     benign_data_dir,
@@ -581,7 +596,7 @@ def main() -> int:
                             task_str,
                             train_queries,
                             test_queries,
-                            cfg,
+                            full_cfg,
                             exp_cfg,
                             agent_cfg,
                             victim_embedding_model,

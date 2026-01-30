@@ -45,6 +45,7 @@ from src.utils import (
     init_llm,
     load_agent_config,
     load_config,
+    load_models,
     load_queries_from_tasks,
     load_tools,
     load_vector_store,
@@ -221,18 +222,29 @@ def main():
         "--config",
         type=Path,
         default=Path("config/config.yaml"),
-        help="Path to config YAML file"
+        help="Path to config YAML file",
     )
-    
+    parser.add_argument(
+        "--models",
+        type=Path,
+        default=Path("config/models.yaml"),
+        help="Path to models YAML file",
+    )
     args = parser.parse_args()
-    
-    # Load config
+
+    # Load config and models
     cfg_path = args.config.resolve()
+    models_path = args.models.resolve()
     if not cfg_path.exists():
         logger.error(f"Config file not found: {cfg_path}")
         return
-    
+    if not models_path.exists():
+        logger.error(f"Models file not found: {models_path}")
+        return
+
     cfg = load_config(cfg_path)
+    models_cfg = load_models(models_path)
+    full_cfg = {**cfg, **models_cfg}
     b_level_cfg = cfg.get("b_level_analysis", {})
     exp_cfg = cfg.get("experiment", {})
     agent_cfg_dict = cfg.get("agent", {})
@@ -300,10 +312,12 @@ def main():
             results_by_domain[domain].append(result)
     
     # Initialize embedding model
-    victim_embedding_model = init_embedding_model(cfg, victim_embedding_model_name)
-    
+    victim_embedding_model = init_embedding_model(
+        full_cfg, victim_embedding_model_name
+    )
+
     # Initialize LLM
-    llm = init_llm(cfg, victim_model)
+    llm = init_llm(full_cfg, victim_model)
     
     # Initialize agent config
     agent_cfg = load_agent_config(cfg_path)

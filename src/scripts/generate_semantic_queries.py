@@ -27,7 +27,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from src.utils import init_llm, load_config
+from src.utils import init_llm, load_config, load_models
 
 
 class QueryBatch(BaseModel):
@@ -242,17 +242,23 @@ def process_task(
 
 def main():
     """Main entry point."""
-    # Load config from default location
-    config_path = Path(__file__).resolve().parents[1] / "config" / \
-        "config_query_generation.yaml"
-    
+    # Load config and models (single config has query_generation section)
+    repo_root = Path(__file__).resolve().parents[2]
+    config_path = repo_root / "config" / "config.yaml"
+    models_path = repo_root / "config" / "models.yaml"
     if not config_path.exists():
         raise FileNotFoundError(
             f"Config file not found: {config_path}. "
-            "Please create config/config_query_generation.yaml"
+            "Please create config/config.yaml"
         )
-
+    if not models_path.exists():
+        raise FileNotFoundError(
+            f"Models file not found: {models_path}. "
+            "Please create config/models.yaml"
+        )
     cfg = load_config(config_path)
+    models_cfg = load_models(models_path)
+    full_cfg = {**cfg, **models_cfg}
     query_gen_cfg = cfg.get("query_generation", {})
 
     # Get parameters from config
@@ -271,7 +277,7 @@ def main():
     logger.info(f"Queries per batch: {queries_per_batch}")
 
     # Initialize LLM
-    llm = init_llm(cfg, model_name=llm_model_name)
+    llm = init_llm(full_cfg, model_name=llm_model_name)
 
     # Process tasks
     if task_file:

@@ -31,6 +31,7 @@ from src.utils import (
     get_base_path,
     init_llm,
     load_config,
+    load_models,
     resolve_path,
 )
 
@@ -59,6 +60,13 @@ class RSIAttackConfig(BaseModel):
 
     output_directory: str = Field(
         description="Where to write RSI outputs (attacker tools)"
+    )
+    benign_data_directory: Optional[str] = Field(
+        default=None,
+        description=(
+            "Benign data directory for RSI. "
+            "If None, experiment.benign_data_directory is used."
+        )
     )
     num_tools: int = Field(
         default=200,
@@ -258,11 +266,25 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description="RSI attack: generate random attacker tools"
     )
-    ap.add_argument("--config", required=True, help="Path to config YAML")
+    ap.add_argument(
+        "--config",
+        type=Path,
+        default=Path("config/config.yaml"),
+        help="Path to config YAML",
+    )
+    ap.add_argument(
+        "--models",
+        type=Path,
+        default=Path("config/models.yaml"),
+        help="Path to models YAML",
+    )
     args = ap.parse_args()
 
-    cfg_path = Path(args.config).resolve()
+    cfg_path = args.config.resolve()
+    models_path = args.models.resolve()
     cfg = load_config(cfg_path)
+    models_cfg = load_models(models_path)
+    full_cfg = {**cfg, **models_cfg}
     rsi_cfg = load_rsi_attack_config(cfg_path)
 
     base_path = get_base_path(cfg_path)
@@ -290,7 +312,7 @@ def main() -> int:
             "generator_model is required in rsi_attack config. "
             "Provide an LLM model name for generating random tools."
         )
-    llm_generator = init_llm(cfg, model_name=rsi_cfg.generator_model)
+    llm_generator = init_llm(full_cfg, model_name=rsi_cfg.generator_model)
     logger.info(f"Using LLM generator: {rsi_cfg.generator_model}")
 
     # Create RSI config

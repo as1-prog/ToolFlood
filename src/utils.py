@@ -182,9 +182,23 @@ class AgentConfig(BaseModel):
 
 
 def load_config(config_path: Path) -> Dict[str, Any]:
-    """Load configuration from YAML file."""
+    """Load configuration from YAML file (no models/embeddings)."""
     with config_path.open("r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
+
+
+def load_models(models_path: Path) -> Dict[str, Any]:
+    """Load models and embeddings from YAML file.
+
+    Returns a dict with keys 'models' and 'embeddings', to be merged
+    with config for init_llm / init_embedding_model.
+    """
+    with models_path.open("r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    return {
+        "models": data.get("models", {}),
+        "embeddings": data.get("embeddings", {}),
+    }
 
 
 def load_toolflood_config(config_path: Path) -> ToolFloodConfig:

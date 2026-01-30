@@ -4,7 +4,7 @@ Build local evaluation data from queries.csv and tools.json, and create
 a vector store for embedding-based retrieval using LangChain.
 
 CLI:
-  python scripts/build_vectorstore.py --config config/config.yaml
+  python scripts/build_vectorstore.py [--config config/config.yaml]
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ from src.utils import (
     get_data_dir,
     init_embedding_model,
     load_config,
+    load_models,
     load_tools,
     resolve_path,
 )
@@ -74,7 +75,18 @@ def init_vector_store(
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--config", required=True, help="Path to config YAML")
+    ap.add_argument(
+        "--config",
+        type=Path,
+        default=Path("config/config.yaml"),
+        help="Path to config YAML (default: config/config.yaml)",
+    )
+    ap.add_argument(
+        "--models",
+        type=Path,
+        default=Path("config/models.yaml"),
+        help="Path to models YAML (default: config/models.yaml)",
+    )
     ap.add_argument(
         "--data-dir",
         help="Override data directory path (relative to config base path or absolute)"
@@ -84,20 +96,23 @@ def main() -> int:
     logger.info(
         f"Starting vector store construction with config: {args.config}"
     )
-    cfg_path = Path(args.config).resolve()
+    cfg_path = args.config.resolve()
+    models_path = args.models.resolve()
     cfg = load_config(cfg_path)
-    
+    models_cfg = load_models(models_path)
+    full_cfg = {**cfg, **models_cfg}
+
     if args.data_dir:
         base_path = get_base_path(cfg_path)
         data_dir = resolve_path(base_path, args.data_dir)
     else:
         data_dir = get_data_dir(cfg_path, cfg)
-    
+
     data_dir.mkdir(parents=True, exist_ok=True)
 
     tools = load_tools(data_dir / "tools.json")
     logger.debug(f"Loaded {len(tools)} tools from {data_dir / 'tools.json'}")
-    embedding_model = init_embedding_model(cfg)
+    embedding_model = init_embedding_model(full_cfg)
     init_vector_store(tools, embedding_model, data_dir / "vectorstore")
     logger.success("Vector store construction completed")
     return 0

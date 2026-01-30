@@ -25,6 +25,7 @@ from src.utils import (
     init_llm,
     load_agent_config,
     load_config,
+    load_models,
     load_tools,
     load_vector_store,
 )
@@ -296,11 +297,25 @@ class VictimAgent:
 async def main() -> int:
     """Main entry point for testing the victim agent."""
     ap = argparse.ArgumentParser()
-    ap.add_argument("--config", required=True, help="Path to config YAML")
+    ap.add_argument(
+        "--config",
+        type=Path,
+        default=Path("config/config.yaml"),
+        help="Path to config YAML (default: config/config.yaml)",
+    )
+    ap.add_argument(
+        "--models",
+        type=Path,
+        default=Path("config/models.yaml"),
+        help="Path to models YAML (default: config/models.yaml)",
+    )
     args = ap.parse_args()
 
-    cfg_path = Path(args.config).resolve()
+    cfg_path = args.config.resolve()
+    models_path = args.models.resolve()
     cfg = load_config(cfg_path)
+    models_cfg = load_models(models_path)
+    full_cfg = {**cfg, **models_cfg}
     agent_cfg = load_agent_config(cfg_path)
 
     if not agent_cfg.query:
@@ -310,9 +325,11 @@ async def main() -> int:
     # Load components from config
     data_dir = get_data_dir(cfg_path, cfg)
     tools = load_tools(data_dir / "tools.json")
-    embedding_model = init_embedding_model(cfg, model_name=agent_cfg.embedding_model)
+    embedding_model = init_embedding_model(
+        full_cfg, model_name=agent_cfg.embedding_model
+    )
     vectorstore = load_vector_store(data_dir / "vectorstore", embedding_model)
-    llm = init_llm(cfg)
+    llm = init_llm(full_cfg)
 
     agent = VictimAgent(
         tools=tools,
