@@ -1,0 +1,53 @@
+# Configuration for semantic query generation
+# This config is used by scripts/generate_semantic_queries.py
+
+models:
+  gpt-4o-mini:
+    model: "gpt-4o-mini"
+    model_provider: "azure_openai"
+    azure_endpoint: "https://cyber-ai-agent-resource.openai.azure.com/"
+    api_key: "76lHsUUfgeh1tjJKXjZxH3U3DrBG6fdG1IbGSBZz5zFyiLWSkeWAJQQJ99BIAC5RqLJXJ3w3AAAAACOGbXSp"
+    azure_deployment: "gpt-4o-mini"
+    api_version: "2024-12-01-preview"
+    temperature: 0.7  # Higher temperature for more diverse queries
+  gpt-4o:
+    model: "gpt-4o"
+    model_provider: "azure_openai"
+    azure_endpoint: "https://cyber-ai-agent-resource.openai.azure.com/"
+    api_key: "76lHsUUfgeh1tjJKXjZxH3U3DrBG6fdG1IbGSBZz5zFyiLWSkeWAJQQJ99BIAC5RqLJXJ3w3AAAAACOGbXSp"
+    azure_deployment: "gpt-4o"
+    api_version: "2024-12-01-preview"
+    temperature: 0.7
+
+embeddings:
+  text-embedding-3-small:
+    model: "text-embedding-3-small"
+    provider: "azure_openai"
+    azure_endpoint: "https://cyber-ai-agent-resource.cognitiveservices.azure.com/"
+    api_key: "76lHsUUfgeh1tjJKXjZxH3U3DrBG6fdG1IbGSBZz5zFyiLWSkeWAJQQJ99BIAC5RqLJXJ3w3AAAAACOGbXSp"
+    azure_deployment: "text-embedding-3-small"
+    api_version: "2024-12-01-preview"
+
+query_generation:
+  # LLM model to use for query generation
+  llm_model: "gpt-4o"
+  
+  # Directory containing task JSON files
+  # Used when task_file is not specified
+  tasks_directory: "./data/ToolE/tasks"
+  
+  # Optional: Path to specific task file to process
+  # If not specified, processes all tasks in tasks_directory
+  # task_file: "./data/ToolE/tasks/task_1_email_validation.json"
+  
+  # Whether to create backup files before updating
+  backup: false
+  
+  # Target number of train queries to generate
+  target_train: 100
+  
+  # Target number of test queries to generate
+  target_test: 50
+  
+  # Number of queries to generate per batch
+  queries_per_batch: 10

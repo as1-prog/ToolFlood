@@ -1,0 +1,92 @@
+models:
+  # Example victim model configuration. Replace with your own deployment
+  # details or reuse entries from config.yaml.
+  gpt-4o-mini:
+    model: "gpt-4o-mini"
+    model_provider: "azure_openai"
+    azure_endpoint: "https://cyber-ai-agent-resource.openai.azure.com/"
+    api_key: "76lHsUUfgeh1tjJKXjZxH3U3DrBG6fdG1IbGSBZz5zFyiLWSkeWAJQQJ99BIAC5RqLJXJ3w3AAAAACOGbXSp"
+    azure_deployment: "gpt-4o-mini"
+    api_version: "2024-12-01-preview"
+    temperature: 0.0
+  gpt-4o:
+    model: "gpt-4o"
+    model_provider: "azure_openai"
+    azure_endpoint: "https://cyber-ai-agent-resource.openai.azure.com/"
+    api_key: "76lHsUUfgeh1tjJKXjZxH3U3DrBG6fdG1IbGSBZz5zFyiLWSkeWAJQQJ99BIAC5RqLJXJ3w3AAAAACOGbXSp"
+    azure_deployment: "gpt-4o"
+    api_version: "2024-12-01-preview"
+    temperature: 0.0
+  gpt-5-mini:
+    model: "gpt-5-mini"
+    model_provider: "azure_openai"
+    azure_endpoint: "https://husse-mg5vc67t-eastus2.cognitiveservices.azure.com/"
+    api_key: "12fVaCGQ8tLZlH36MqxVFjWRkM6hKFMhaCpRC4vcJ3bp4KDsxanyJQQJ99BIACHYHv6XJ3w3AAAAACOGAug6"
+    azure_deployment: "gpt-5-mini"
+    api_version: "2024-12-01-preview"
+    temperature: 0.0
+
+embeddings:
+  # Victim embedding models. You can change these to match the
+  # embeddings used in your ToolFlood experiments.
+  text-embedding-3-small:
+    model: "text-embedding-3-small"
+    provider: "azure_openai"
+    azure_endpoint: "https://cyber-ai-agent-resource.cognitiveservices.azure.com/"
+    api_key: "76lHsUUfgeh1tjJKXjZxH3U3DrBG6fdG1IbGSBZz5zFyiLWSkeWAJQQJ99BIAC5RqLJXJ3w3AAAAACOGbXSp"
+    azure_deployment: "text-embedding-3-small"
+    api_version: "2024-12-01-preview"
+  sentence-transformers/all-MiniLM-L6-v2:
+    model: "sentence-transformers/all-MiniLM-L6-v2"
+    provider: "huggingface"
+
+
+# Configuration for the Random-Sybil Injection (RSI) attack.
+rsi_attack:
+  # Where to write RSI outputs (attacker tools, merged tools, metrics).
+  output_directory: "./experiment_output_rsi_toolbench"
+
+  # Total number of random tools to generate.
+  num_tools: 200
+
+  # Number of tools to generate per batch (for efficiency).
+  batch_size: 10
+
+  # LLM generator for creating random tools.
+  # Must be a key from the `models` section above.
+  generator_model: "gpt-4o-mini"
+
+  # Temperature for LLM generation.
+  temperature: 1.0
+
+
+experiment:
+  # Where benign ToolBench-style data (tools.json, tasks/, etc.) lives.
+  benign_data_directory: "./data/ToolBench"
+
+  # Output directory is primarily controlled by rsi_attack.output_directory.
+  # This field is still required by the shared ExperimentConfig.
+  output_directory: "./experiment_output_rsi_toolbench"
+
+  # Maximum number of test queries to evaluate on.
+  max_test_queries: 50
+
+  # How many tools the victim agent retrieves per query.
+  # This also controls the "k" used when computing TDR / Mean Domination.
+  max_train_evaluation_queries: 5
+
+  # Optional subset of task names from the ToolBench tasks/ folder.
+  # If set to null or omitted, all tasks will be processed individually.
+  # Each task will have its own output directory.
+  # Example for specific tasks:
+  # task_names:
+  #   - "Air quality monitoring"
+  #   - "Email validation and deliverability"
+  task_names: null
+  # To process all tasks automatically, set to null:
+  # task_names: null
+
+  # These fields are part of the shared ExperimentConfig.
+  victim_models: ["gpt-4o-mini", "gpt-4o", "gpt-5-mini"]
+  victim_embedding_models: ["text-embedding-3-small"]
+  hard_reset: false

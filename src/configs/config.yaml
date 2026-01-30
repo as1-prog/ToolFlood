@@ -1,0 +1,118 @@
+models:
+  gpt-4o-mini:
+    model: "gpt-4o-mini"
+    model_provider: "azure_openai"
+    azure_endpoint: "https://cyber-ai-agent-resource.openai.azure.com/"
+    api_key: "76lHsUUfgeh1tjJKXjZxH3U3DrBG6fdG1IbGSBZz5zFyiLWSkeWAJQQJ99BIAC5RqLJXJ3w3AAAAACOGbXSp"
+    azure_deployment: "gpt-4o-mini"
+    api_version: "2024-12-01-preview"
+    temperature: 0.0
+  gpt-4o:
+    model: "gpt-4o"
+    model_provider: "azure_openai"
+    azure_endpoint: "https://cyber-ai-agent-resource.openai.azure.com/"
+    api_key: "76lHsUUfgeh1tjJKXjZxH3U3DrBG6fdG1IbGSBZz5zFyiLWSkeWAJQQJ99BIAC5RqLJXJ3w3AAAAACOGbXSp"
+    azure_deployment: "gpt-4o"
+    api_version: "2024-12-01-preview"
+    temperature: 0.0
+  gpt-5-mini:
+    model: "gpt-5-mini"
+    model_provider: "azure_openai"
+    azure_endpoint: "https://husse-mg5vc67t-eastus2.cognitiveservices.azure.com/"
+    api_key: "12fVaCGQ8tLZlH36MqxVFjWRkM6hKFMhaCpRC4vcJ3bp4KDsxanyJQQJ99BIACHYHv6XJ3w3AAAAACOGAug6"
+    azure_deployment: "gpt-5-mini"
+    api_version: "2024-12-01-preview"
+    temperature: 0.0
+
+embeddings:
+  text-embedding-3-small:
+    model: "text-embedding-3-small"
+    provider: "azure_openai"
+    azure_endpoint: "https://cyber-ai-agent-resource.cognitiveservices.azure.com/"
+    api_key: "76lHsUUfgeh1tjJKXjZxH3U3DrBG6fdG1IbGSBZz5zFyiLWSkeWAJQQJ99BIAC5RqLJXJ3w3AAAAACOGbXSp"
+    azure_deployment: "text-embedding-3-small"
+    api_version: "2024-12-01-preview"
+  text-embedding-ada-002:
+    model: "text-embedding-ada-002"
+    provider: "azure_openai"
+    azure_endpoint: "https://cyber-ai-agent-resource.cognitiveservices.azure.com/"
+    api_key: "76lHsUUfgeh1tjJKXjZxH3U3DrBG6fdG1IbGSBZz5zFyiLWSkeWAJQQJ99BIAC5RqLJXJ3w3AAAAACOGbXSp"
+    azure_deployment: "text-embedding-ada-002"
+    api_version: "2024-12-01-preview"
+  text-embedding-3-large:
+    model: "text-embedding-3-large"
+    provider: "azure_openai"
+    azure_endpoint: "https://cyber-ai-agent-resource.cognitiveservices.azure.com/"
+    api_key: "76lHsUUfgeh1tjJKXjZxH3U3DrBG6fdG1IbGSBZz5zFyiLWSkeWAJQQJ99BIAC5RqLJXJ3w3AAAAACOGbXSp"
+    azure_deployment: "text-embedding-3-large"
+    api_version: "2024-12-01-preview"
+  sentence-transformers/all-MiniLM-L6-v2:
+      model: "sentence-transformers/all-MiniLM-L6-v2"
+      provider: "huggingface"
+
+
+attack:
+  attack_method: "toolflood"
+  budget_N: null
+  attacker_tools_output_path: "./output/attacker_tools.json"
+  enable_distance_filtering: false
+  max_distance_threshold: 0.3
+  embedding_model: "text-embedding-3-small"
+  llm_optimizer_model: "gpt-4o-mini"
+
+  toolflood:
+    tools_per_query: 5
+    sample_size: 20
+    tools_to_generate_per_sample: 10
+    max_iterations: 1000
+    use_proximity_sampling: false
+    max_concurrent_iterations: 20
+
+experiment:
+  benign_data_directory: "./data/ToolE"
+  output_directory: "./experiment_output_toole_blackbox"
+  max_train_queries: 100
+  max_train_evaluation_queries: 10
+  max_test_queries: 50
+  victim_models: ["gpt-4o-mini","gpt-4o","gpt-5-mini"]
+  attack_embedding_models: ["text-embedding-3-small"]
+  victim_embedding_models: ["text-embedding-3-small"]
+  hard_reset: true  # If true, clears existing results and starts fresh
+  # task_names: ["Space images", "Website performance + SEO + keywords"]
+  task_names: [
+    # "Space images",
+    # "Website performance + SEO + keywords",
+    # "Financial insights / portfolio",
+    # "Resume optimization + job outreach emails",
+    # "Daily workout habit plan + reminders",
+    # "Travel itinerary + booking + recommendations",
+    #"Father's Day gifts (recommend/compare/reviews)",
+    # "Language learning plan + review strategy",
+    "Social media content creation",
+    "Games for fun/relaxation"
+  ]
+  # task_names: [
+  #   "Space images",
+  #   "Website performance + SEO + keywords",
+  #   "Financial insights / portfolio",
+  #   "Resume optimization + job outreach emails",
+  #   "Daily workout habit plan + reminders",
+  #   "Travel itinerary + booking + recommendations",
+  #   "Father's Day gifts (recommend/compare/reviews)",
+  #   "Language learning plan + review strategy",
+  #   "Social media content creation",
+  #   "Games for fun/relaxation"
+  # ]
+
+agent:
+  query: null
+  verbose: true
+  top_k: 5
+  embedding_model: "text-embedding-3-small"
+
+b_level_analysis:
+  experiment_output: "./experiment_output_toole_blackbox"
+  output_directory: "./experiment_output_toole_blackbox_b_levels"
+  benign_tools_path: "./data/ToolBench/tools.json"
+  b_levels: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
+
