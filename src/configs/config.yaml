@@ -55,7 +55,6 @@ attack:
   attack_method: "toolflood"
   budget_N: null
   attacker_tools_output_path: "./output/attacker_tools.json"
-  enable_distance_filtering: false
   max_distance_threshold: 0.3
   embedding_model: "text-embedding-3-small"
   llm_optimizer_model: "gpt-4o-mini"
@@ -65,7 +64,6 @@ attack:
     sample_size: 20
     tools_to_generate_per_sample: 10
     max_iterations: 1000
-    use_proximity_sampling: false
     max_concurrent_iterations: 20
 
 experiment:

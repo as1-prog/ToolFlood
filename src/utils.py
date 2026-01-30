@@ -65,14 +65,6 @@ class ToolFloodAttackConfig(BaseModel):
         default=5,
         description="Maximum number of concurrent iterations in Phase 1 (parallelization)"
     )
-    use_proximity_sampling: bool = Field(
-        default=False,
-        description=(
-            "If True, samples one query randomly and selects the remaining "
-            "sample_size - 1 queries closest to it. If False, samples all "
-            "queries randomly."
-        )
-    )
 
 
 class AttackConfig(BaseModel):
@@ -81,19 +73,9 @@ class AttackConfig(BaseModel):
         default="toolflood",
         description="Attack method to use: 'toolflood' for ToolFlood attack"
     )
-    enable_distance_filtering: bool = Field(
-        default=True,
-        description=(
-            "Whether to filter generated tools using a distance threshold. "
-            "If True, tools with distance greater than threshold are dropped"
-        )
-    )
     max_distance_threshold: float = Field(
         default=0.4,
-        description=(
-            "Maximum allowed distance between query and generated tool. "
-            "Only applies when enable_distance_filtering is True"
-        )
+        description="Maximum allowed distance between query and generated tool."
     )
     attacker_tools_output_path: str = Field(
         description="Output JSON path for attacker tools"

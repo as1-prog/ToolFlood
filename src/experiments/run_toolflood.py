@@ -113,10 +113,8 @@ def generate_attacker_tools_for_domain(
                 toolflood_cfg.tools_to_generate_per_sample
             ),
             max_iterations=toolflood_cfg.max_iterations,
-            enable_distance_filtering=attack_cfg.enable_distance_filtering,
             max_distance_threshold=attack_cfg.max_distance_threshold,
             budget_N=attack_cfg.budget_N,
-            use_proximity_sampling=toolflood_cfg.use_proximity_sampling,
             max_concurrent_iterations=toolflood_cfg.max_concurrent_iterations,
         )
     else:
