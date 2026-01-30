@@ -137,9 +137,6 @@ dmypy.json
 *.pkl
 vectorstore/
 
-# Experiment outputs (uncomment if you don't want to commit these)
-# experiment_output/
-
 # Data files (uncomment if you don't want to commit data)
 # data/
 
