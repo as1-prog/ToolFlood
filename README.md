@@ -87,7 +87,13 @@ Task files are loaded by `load_queries_from_tasks`; task names in `experiment.ta
 
 ---
 
-## 🚀 Running
+## 📓 Demo Notebook
+
+`notebooks/toolflood_demo.ipynb` runs the full ToolFlood pipeline: load queries (e.g. "Space images"), run the attack with reduced params, merge tools, evaluate the victim agent, and report ASR, TDR, and Mean Domination. See **Quick Start** above to run it.
+
+---
+
+## 🚀 Running (Full Experiment)
 
 From the **project root**:
 
