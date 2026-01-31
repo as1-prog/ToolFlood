@@ -50,7 +50,6 @@ from src.utils import (  # noqa: E402
     init_embedding_model,
     init_llm,
     load_agent_config,
-    load_config,
     load_experiment_config,
     load_models,
     load_queries_from_tasks,
@@ -62,18 +61,17 @@ from src.utils import (  # noqa: E402
 from src.scripts.build_vectorstore import init_vector_store  # noqa: E402
 
 
-def generate_attacker_tools_for_domain(
+def generate_attacker_tools_for_task(
     task_name: Optional[str],
-    cfg: Dict,
+    model_cfg: Dict,
     exp_cfg,
     attack_cfg,
     benign_data_dir: Path,
     attack_embedding_model,
-    attack_embedding_model_name: str,
 ) -> tuple[List[Tool], List[str], List[str], str, Dict[str, int]]:
-    """Generate attacker tools for a task.
+    """Generate attacker tools for a single task (or all tasks if task_name is None).
 
-    Returns tools, train/test queries, task_str, and phase2_coverage.
+    Returns attacker_tools, train_queries, test_queries, task_str, and phase2_coverage.
     """
     task_list = [task_name] if task_name else None
     task_str = task_name if task_name else "all"
@@ -100,7 +98,7 @@ def generate_attacker_tools_for_domain(
 
     # Generate attacker tools
     llm_optimizer = init_llm(
-        cfg, model_name=attack_cfg.llm_optimizer_model
+        model_cfg, model_name=attack_cfg.llm_optimizer_model
     )
     attack_config = ToolFloodAttackConfigClass(
         num_tools_per_query=attack_cfg.num_tools_per_query,
@@ -130,13 +128,13 @@ def generate_attacker_tools_for_domain(
     return attacker_tools, train_queries, test_queries, task_str, phase2_coverage
 
 
-def save_attacker_tools(
+def write_attacker_tools(
     merged_tools: List[Tool],
     attacker_tool_names: set[str],
     output_path: Path,
     phase2_coverage: Optional[Dict[str, int]] = None
 ) -> None:
-    """Save attacker tools to JSON file.
+    """Write attacker tools to a JSON file.
     
     Args:
         merged_tools: List of all merged tools (benign + attacker)
@@ -170,10 +168,10 @@ def save_attacker_tools(
     
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(tools_dict, f, indent=2)
-    logger.success(f"Attacker tools saved to: {output_path}")
+    logger.success(f"Attacker tools written to: {output_path}")
 
 
-def prepare_vector_store_for_embedding(
+def build_vector_store_for_embedding_combo(
     task_str: str,
     attacker_tools: List[Tool],
     experiment_dir: Path,
@@ -183,9 +181,9 @@ def prepare_vector_store_for_embedding(
     benign_tools: List[Tool],
     phase2_coverage: Optional[Dict[str, int]] = None,
 ) -> tuple[Path, List[Tool], set[str]]:
-    """Prepare vector store and merged tools for an embedding combination.
-    
-    This is done once per embedding combination and reused across all models.
+    """Build vector store and merged tools for one (attack_emb, victim_emb) combination.
+
+    Done once per combination and reused across all victim LLM models.
     Returns (vectorstore_path, merged_tools, attacker_tool_names).
     """
     # Merge tools - use unique path per embedding model combination
@@ -204,7 +202,7 @@ def prepare_vector_store_for_embedding(
     
     # Save attacker tools separately (from merged tools to match num_injected_tools count)
     attacker_tools_path = task_experiment_dir / "attack_tools.json"
-    save_attacker_tools(merged_tools, attacker_tool_names, attacker_tools_path, phase2_coverage)
+    write_attacker_tools(merged_tools, attacker_tool_names, attacker_tools_path, phase2_coverage)
 
     # Build vector store (only once per embedding combination)
     vectorstore_path = task_experiment_dir / "vectorstore"
@@ -218,12 +216,12 @@ def prepare_vector_store_for_embedding(
     return vectorstore_path, merged_tools, attacker_tool_names
 
 
-def run_experiment_for_model(
+def evaluate_victim_model(
     model_name: str,
     task_str: str,
     train_queries: List[str],
     test_queries: List[str],
-    cfg: Dict,
+    model_cfg: Dict,
     exp_cfg,
     agent_cfg,
     victim_embedding_model,
@@ -233,7 +231,7 @@ def run_experiment_for_model(
     merged_tools: List[Tool],
     attacker_tool_names: set[str],
 ) -> Dict:
-    """Run experiment for a specific model.
+    """Evaluate a single victim LLM model on train and test queries.
 
     Uses pre-generated attacker tools and pre-built vector store.
     """
@@ -246,7 +244,7 @@ def run_experiment_for_model(
     merged_vectorstore = load_vector_store(
         vectorstore_path, victim_embedding_model
     )
-    llm = init_llm(cfg, model_name=model_name)
+    llm = init_llm(model_cfg, model_name=model_name)
     agent = VictimAgent(
         tools=merged_tools,
         vectorstore=merged_vectorstore,
@@ -333,14 +331,13 @@ def run_experiment_for_model(
     }
 
 
-def update_results_table(
+def build_results_dataframe(
     all_results: List[Dict],
-    experiment_dir: Path,
     exp_cfg,
     agent_cfg,
     benign_tools: List[Tool],
 ) -> pd.DataFrame:
-    """Create or update results table from all results."""
+    """Build a results DataFrame from all experiment result dicts."""
     benchmark_name = Path(exp_cfg.benign_data_directory).name
 
     rows = []
@@ -393,16 +390,15 @@ def update_results_table(
 
 def save_results(
     all_results: List[Dict],
-    experiment_dir: Path,
     exp_cfg,
     agent_cfg,
     benign_tools: List[Tool],
     results_json_path: Path,
     results_table_path: Path,
 ) -> None:
-    """Save results to JSON and update CSV table."""
-    results_table = update_results_table(
-        all_results, experiment_dir, exp_cfg, agent_cfg, benign_tools
+    """Save results to JSON and CSV (builds table from all_results)."""
+    results_table = build_results_dataframe(
+        all_results, exp_cfg, agent_cfg, benign_tools
     )
     write_results_to_disk(
         all_results, results_json_path, results_table, results_table_path
@@ -429,9 +425,7 @@ def main() -> int:
 
     cfg_path = args.config.resolve()
     models_path = args.models.resolve()
-    cfg = load_config(cfg_path)
     models_cfg = load_models(models_path)
-    full_cfg = {**cfg, **models_cfg}
     exp_cfg = load_experiment_config(cfg_path)
     attack_cfg = load_toolflood_config(cfg_path)
     agent_cfg = load_agent_config(cfg_path)
@@ -469,12 +463,12 @@ def main() -> int:
 
     for emb_model_name in exp_cfg.attack_embedding_models:
         attack_embedding_models[emb_model_name] = init_embedding_model(
-            full_cfg, model_name=emb_model_name
+            models_cfg, model_name=emb_model_name
         )
 
     for emb_model_name in exp_cfg.victim_embedding_models:
         victim_embedding_models[emb_model_name] = init_embedding_model(
-            full_cfg, model_name=emb_model_name
+            models_cfg, model_name=emb_model_name
         )
 
     benign_tools = load_tools(benign_data_dir / "tools.json")
@@ -532,14 +526,13 @@ def main() -> int:
 
             # Generate attacker tools once per task and attack embedding model
             attacker_tools, train_queries, test_queries, task_str, phase2_coverage = (
-                generate_attacker_tools_for_domain(
+                generate_attacker_tools_for_task(
                     task,
-                    full_cfg,
+                    models_cfg,
                     exp_cfg,
                     attack_cfg,
                     benign_data_dir,
                     attack_embedding_model,
-                    attack_emb_model_name,
                 )
             )
 
@@ -549,11 +542,11 @@ def main() -> int:
                 victim_embedding_model = (
                     victim_embedding_models[victim_emb_model_name]
                 )
-                
-                # Prepare vector store once per embedding combination
-                # This will be reused across all victim LLM models with the same embedding
+
+                # Build vector store once per embedding combination
+                # Reused across all victim LLM models with the same embedding
                 vectorstore_path, merged_tools, attacker_tool_names = (
-                    prepare_vector_store_for_embedding(
+                    build_vector_store_for_embedding_combo(
                         task_str,
                         attacker_tools,
                         experiment_dir,
@@ -564,39 +557,23 @@ def main() -> int:
                         phase2_coverage,
                     )
                 )
-                
+
                 # Test all victim LLM models with this embedding model
                 for model_name in victim_models:
-                    # Check if this combination is already completed
-                    combination_key = (
-                        task_str,
-                        model_name,
-                        attack_emb_model_name,
-                        victim_emb_model_name,
-                    )
-                    if combination_key in completed_combinations:
-                        logger.info(
-                            f"Skipping already completed: {task_str} / "
-                            f"{model_name} / attack_emb: "
-                            f"{attack_emb_model_name} / victim_emb: "
-                            f"{victim_emb_model_name}"
-                        )
-                        continue
-
                     logger.info(
-                        f"Running experiment: {task_str} / {model_name} / "
-                        f"attack_emb: {attack_emb_model_name} / "
-                        f"victim_emb: {victim_emb_model_name} "
+                        f"Running Evaluation: {task_str} / {model_name} / "
+                        f"Attack Embedding Model: {attack_emb_model_name} / "
+                        f"Victim Embedding Model: {victim_emb_model_name} "
                         f"({completed_count + 1}/{total_combinations})"
                     )
 
                     try:
-                        result = run_experiment_for_model(
+                        result = evaluate_victim_model(
                             model_name,
                             task_str,
                             train_queries,
                             test_queries,
-                            full_cfg,
+                            models_cfg,
                             exp_cfg,
                             agent_cfg,
                             victim_embedding_model,
@@ -612,7 +589,6 @@ def main() -> int:
                         # Save results incrementally after each experiment
                         save_results(
                             all_results,
-                            experiment_dir,
                             exp_cfg,
                             agent_cfg,
                             benign_tools,
@@ -639,7 +615,6 @@ def main() -> int:
     if all_results:
         save_results(
             all_results,
-            experiment_dir,
             exp_cfg,
             agent_cfg,
             benign_tools,

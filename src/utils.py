@@ -225,7 +225,7 @@ def load_agent_config(config_path: Path) -> AgentConfig:
 def get_base_path(config_path: Path) -> Path:
     """Get base path from config file location (project root)."""
     parent = config_path.parent
-    if parent.name == "config":
+    if parent.name in ("config", ".config"):
         return parent.parent
     if parent.name == "configs":
         return parent.parent.parent

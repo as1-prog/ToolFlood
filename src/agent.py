@@ -253,6 +253,7 @@ class VictimAgent:
         if decision.chosen_tool_id not in candidate_ids:
             invalid_id = decision.chosen_tool_id
             logger.warning(f"LLM chose invalid tool_id: {invalid_id}")
+            logger.warning(f"Candidate tools: {candidate_tools}")
             return None
 
         chosen_tool = next(

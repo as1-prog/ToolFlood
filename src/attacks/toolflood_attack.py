@@ -156,19 +156,19 @@ Each tool must:
             )
             sampled_queries = [self.target_queries[idx] for idx in sampled_indices]
             
-            logger.debug(
-                f"Iter {iteration_number}: Sampled {len(sampled_queries)} queries, "
-                f"first: '{sampled_queries[0][:60]}...'"
-            )
+            # logger.debug(
+            #     f"Iter {iteration_number}: Sampled {len(sampled_queries)} queries, "
+            #     f"first: '{sampled_queries[0][:60]}...'"
+            # )
 
             # Generate tools
             generated_candidates = await self._generate_tools(sampled_queries)
-            logger.info(
-                f"Iter {iteration_number}: Generated {len(generated_candidates)} tools, "
-                f"best distance: {generated_candidates[0].min_distance_to_queries:.4f}"
-                if generated_candidates 
-                else f"Iter {iteration_number}: No tools generated"
-            )
+            # logger.info(
+            #     f"Iter {iteration_number}: Generated {len(generated_candidates)} tools, "
+            #     f"best distance: {generated_candidates[0].min_distance_to_queries:.4f}"
+            #     if generated_candidates 
+            #     else f"Iter {iteration_number}: No tools generated"
+            # )
             
             return generated_candidates
 

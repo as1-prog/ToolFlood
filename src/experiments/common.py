@@ -44,10 +44,10 @@ def merge_tools(
             while f"{original_name}_{suffix}" in merged_dict:
                 suffix += 1
             tool_name = f"{original_name}_{suffix}"
-            logger.warning(
-                f"Attacker tool '{original_name}' conflicts with existing name, "
-                f"renaming to '{tool_name}'"
-            )
+            # logger.warning(
+            #     f"Attacker tool '{original_name}' conflicts with existing name, "
+            #     f"renaming to '{tool_name}'"
+            # )
 
         merged_dict[tool_name] = tool.description
         attacker_names.add(tool_name)
