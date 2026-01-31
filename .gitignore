@@ -131,6 +131,10 @@ dmypy.json
 *~
 .DS_Store
 
+# uv
+uv.lock
+.uv/
+
 # Project-specific
 # Vectorstore files (can be large)
 *.faiss
