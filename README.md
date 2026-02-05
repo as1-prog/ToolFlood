@@ -1,6 +1,6 @@
-# 🌊 ToolFlood Attack
+# 🌊 ToolFlood
 
-ToolFlood is a **candidate-capture attack** on tool-using agents. It generates adversarial tools that are retrieved instead of benign tools when the victim agent answers user queries.
+ToolFlood is a **candidate-capture** framework for tool-using agents. It generates synthetic tools that are retrieved instead of benign tools when the agent answers user queries.
 
 - **Phase 1:** Generate tool candidates from sampled target queries (parallelized).
 - **Phase 2:** Greedily select tools that maximize query coverage (embedding distance threshold).
@@ -24,7 +24,7 @@ uv sync
 
 ### 1. 📄 Main config (`config/config.yaml`)
 
-**ToolFlood attack** (`toolflood` section):
+**ToolFlood** (`toolflood` section):
 
 | Option | Description | Example |
 |--------|-------------|--------|
@@ -33,11 +33,11 @@ uv sync
 | `num_tools_per_sample` | Tools generated per sample before filtering | `10` |
 | `max_generation_iterations` | Phase 1 iteration limit | `20` |
 | `max_embedding_distance` | Max cosine distance query↔tool (candidate filter) | `0.3` |
-| `total_tool_budget` | Cap total attacker tools (`null` = no cap) | `null` |
+| `total_tool_budget` | Cap total generated tools (`null` = no cap) | `null` |
 | `max_concurrent_tasks` | Parallel tasks in Phase 1 | `20` |
 | `embedding_model` | Embedding model name (see `models.yaml`) | `"text-embedding-3-small"` |
 | `llm_optimizer_model` | LLM used to generate tool descriptions | `"gpt-4o-mini"` |
-| `attacker_tools_output_path` | Where to write attacker tools (optional) | `"./output/attacker_tools.json"` |
+| `attacker_tools_output_path` | Where to write generated tools (optional) | `"./output/attacker_tools.json"` |
 
 **Experiment** (`experiment` section):
 
@@ -45,11 +45,11 @@ uv sync
 |--------|-------------|
 | `benign_data_directory` | Dir with `tasks/` and `tools.json` (e.g. `./data/ToolE`) |
 | `output_directory` | Results, merged tools, vectorstores (e.g. `./outputs/toolflood/toole`) |
-| `max_train_queries` | Max train queries for attack generation |
+| `max_train_queries` | Max train queries for tool generation |
 | `max_test_queries` | Max test queries for evaluation |
-| `victim_models` | Victim LLM names to evaluate |
-| `attack_embedding_models` | Embedding model(s) for attack phase |
-| `victim_embedding_models` | Embedding model(s) for victim retrieval |
+| `victim_models` | LLM names to evaluate |
+| `attack_embedding_models` | Embedding model(s) for generation phase |
+| `victim_embedding_models` | Embedding model(s) for retrieval |
 | `task_names` | Task names under `tasks/` (or omit for all tasks) |
 | `hard_reset` | If `true`, ignore previous results and start fresh |
 
@@ -89,7 +89,7 @@ Task files are loaded by `load_queries_from_tasks`; task names in `experiment.ta
 
 ## 📓 Demo Notebook
 
-`notebooks/toolflood_demo.ipynb` runs the full ToolFlood pipeline: load queries (e.g. "Space images"), run the attack with reduced params, merge tools, evaluate the victim agent, and report ASR, TDR, and Mean Domination.
+`notebooks/toolflood_demo.ipynb` runs the full ToolFlood pipeline: load queries (e.g. "Space images"), run the pipeline with reduced params, merge tools, evaluate the agent, and report ASR, TDR, and Mean Domination.
 
 ---
 
@@ -106,9 +106,9 @@ python -m src.experiments.run_toolflood --config config/config.yaml --models con
 
 The script will:
 
-1. For each task (or all tasks), generate attacker tools with the attack embedding model(s).
-2. Merge attacker + benign tools and build a vector store per (attack_emb, victim_emb) pair.
-3. Evaluate each victim model on train and test queries.
+1. For each task (or all tasks), generate tools with the generation embedding model(s).
+2. Merge generated + benign tools and build a vector store per (attack_emb, victim_emb) pair.
+3. Evaluate each model on train and test queries.
 4. Append results and write them incrementally.
 
 Results are written under `experiment.output_directory`:
@@ -123,8 +123,8 @@ To rerun from scratch, set `experiment.hard_reset: true` in `config/config.yaml`
 
 ## 📊 Metrics
 
-- **ASR (Attack Success Rate):** fraction of queries where the selected tool was an attacker tool.
-- **TDR (Top-k Domination Rate):** fraction of queries where attacker tools dominate the top-k.
+- **ASR (Alternative Selection Rate):** fraction of queries where the selected tool was a generated tool.
+- **TDR (Top-k Domination Rate):** fraction of queries where generated tools dominate the top-k.
 
 These are computed for both train and test splits and reported in `results_table.csv`.
 
@@ -132,12 +132,12 @@ These are computed for both train and test splits and reported in `results_table
 
 ## 🔁 Reproducibility
 
-The **`outputs/`** directory contains all experiment runs (one subfolder per attack, then per benchmark; e.g. `outputs/toolflood/toole/`).
+The **`outputs/`** directory contains all experiment runs (one subfolder per method, then per benchmark; e.g. `outputs/toolflood/toole/`).
 
-To aggregate metrics across all runs (all attacks and benchmarks under `outputs/`), run:
+To aggregate metrics across all runs (all methods and benchmarks under `outputs/`), run:
 
 ```bash
 python src/scripts/calculate_metrics_per_model.py
 ```
 
-This script discovers every `results_table.csv` under `outputs/<attack>/<benchmark>/`, computes per-model averages (Avg B, Avg Poisoning Rate, ASR, TDR), and writes `outputs/metrics_per_model.csv`. Use it to reproduce or compare summary metrics from your experiment outputs.
+This script discovers every `results_table.csv` under `outputs/<method>/<benchmark>/`, computes per-model averages (Avg B, Avg Poisoning Rate, ASR, TDR), and writes `outputs/metrics_per_model.csv`. Use it to reproduce or compare summary metrics from your experiment outputs.
