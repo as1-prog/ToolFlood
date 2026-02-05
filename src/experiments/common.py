@@ -29,7 +29,7 @@ def merge_tools(
     *,
     attacker_label: str = "attacker",
 ) -> Tuple[List[Tool], Set[str]]:
-    """Merge benign and attacker tools, save to JSON; return merged tools + names."""
+    """Merge benign and generated tools, save to JSON; return merged tools + names."""
     logger.info(f"Merging benign and {attacker_label} tools...")
 
     merged_dict: Dict[str, str] = {tool.name: tool.description for tool in benign_tools}
@@ -45,7 +45,7 @@ def merge_tools(
                 suffix += 1
             tool_name = f"{original_name}_{suffix}"
             # logger.warning(
-            #     f"Attacker tool '{original_name}' conflicts with existing name, "
+            #     f"Generated tool '{original_name}' conflicts with existing name, "
             #     f"renaming to '{tool_name}'"
             # )
 

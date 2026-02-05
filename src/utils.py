@@ -42,7 +42,7 @@ class GeneratedTools(BaseModel):
 
 
 class ToolFloodConfig(BaseModel):
-    """Flat configuration for ToolFlood attack (loaded from config.toolflood)."""
+    """Flat configuration for ToolFlood (loaded from config.toolflood)."""
     total_tool_budget: Optional[int] = Field(
         default=None,
         description=(
@@ -51,7 +51,7 @@ class ToolFloodConfig(BaseModel):
         )
     )
     attacker_tools_output_path: str = Field(
-        description="Output JSON path for attacker tools"
+        description="Output JSON path for generated tools"
     )
     max_embedding_distance: float = Field(
         default=0.4,
@@ -72,7 +72,7 @@ class ToolFloodConfig(BaseModel):
         )
     )
     num_tools_per_query: int = Field(
-        description="Number of attacker tools per query (top-k)"
+        description="Number of generated tools per query (top-k)"
     )
     query_sample_size: int = Field(
         default=10,
@@ -110,7 +110,7 @@ class ExperimentConfig(BaseModel):
     max_train_queries: Optional[int] = Field(
         default=None,
         description=(
-            "Maximum number of train queries to use for attack generation"
+            "Maximum number of train queries to use for tool generation"
         )
     )
     max_test_queries: Optional[int] = Field(
@@ -127,22 +127,22 @@ class ExperimentConfig(BaseModel):
     )
     victim_models: List[str] = Field(
         default=["gpt-4o-mini"],
-        description="List of model names to test as victim agents"
+        description="List of model names to evaluate"
     )
     attack_embedding_models: List[str] = Field(
         default=["text-embedding-3-small"],
         description=(
             "List of embedding model names from embeddings dictionary to use "
-            "for generating attacker tools. Each model will be used to "
-            "generate attacker tools separately"
+            "for generating tools. Each model will be used to "
+            "generate tools separately"
         )
     )
     victim_embedding_models: List[str] = Field(
         default=["text-embedding-3-small"],
         description=(
             "List of embedding model names from embeddings dictionary to use "
-            "for victim agents. Each model will be tested with each victim "
-            "model"
+            "for retrieval. Each model will be tested with each "
+            "evaluation model"
         )
     )
     task_names: Optional[List[str]] = Field(

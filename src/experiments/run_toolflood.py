@@ -69,14 +69,14 @@ def generate_attacker_tools_for_task(
     benign_data_dir: Path,
     attack_embedding_model,
 ) -> tuple[List[Tool], List[str], List[str], str, Dict[str, int]]:
-    """Generate attacker tools for a single task (or all tasks if task_name is None).
+    """Generate tools for a single task (or all tasks if task_name is None).
 
     Returns attacker_tools, train_queries, test_queries, task_str, and phase2_coverage.
     """
     task_list = [task_name] if task_name else None
     task_str = task_name if task_name else "all"
 
-    logger.info(f"Generating attacker tools for task: {task_str}")
+    logger.info(f"Generating tools for task: {task_str}")
 
     # Load queries from tasks folder
     train_queries, test_queries = load_queries_from_tasks(
@@ -134,21 +134,21 @@ def write_attacker_tools(
     output_path: Path,
     phase2_coverage: Optional[Dict[str, int]] = None
 ) -> None:
-    """Write attacker tools to a JSON file.
+    """Write generated tools to a JSON file.
     
     Args:
-        merged_tools: List of all merged tools (benign + attacker)
-        attacker_tool_names: Set of attacker tool names (after merging/renaming)
+        merged_tools: List of all merged tools (benign + generated)
+        attacker_tool_names: Set of generated tool names (after merging/renaming)
         output_path: Path to save the JSON file
         phase2_coverage: Optional dict mapping tool name to phase 2 query coverage count
     """
-    # Filter to only attacker tools
+    # Filter to only generated tools
     attacker_tools = [
         tool for tool in merged_tools
         if tool.name in attacker_tool_names
     ]
     
-    logger.info(f"Saving {len(attacker_tools)} attacker tools...")
+    logger.info(f"Saving {len(attacker_tools)} generated tools...")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
     # Build tools dict with phase 2 coverage info
@@ -183,7 +183,7 @@ def build_vector_store_for_embedding_combo(
 ) -> tuple[Path, List[Tool], set[str]]:
     """Build vector store and merged tools for one (attack_emb, victim_emb) combination.
 
-    Done once per combination and reused across all victim LLM models.
+    Done once per combination and reused across all evaluation LLM models.
     Returns (vectorstore_path, merged_tools, attacker_tool_names).
     """
     # Merge tools - use unique path per embedding model combination
@@ -200,7 +200,7 @@ def build_vector_store_for_embedding_combo(
         benign_tools, attacker_tools, merged_tools_path
     )
     
-    # Save attacker tools separately (from merged tools to match num_injected_tools count)
+    # Save generated tools separately (from merged tools to match num_injected_tools count)
     attacker_tools_path = task_experiment_dir / "attack_tools.json"
     write_attacker_tools(merged_tools, attacker_tool_names, attacker_tools_path, phase2_coverage)
 
@@ -493,8 +493,8 @@ def main() -> int:
             tasks = [None]
     victim_models = exp_cfg.victim_models
 
-    # Run experiments: generate attacker tools per task and attack embedding
-    # model, test all victim models and victim embedding model combinations
+    # Run experiments: generate tools per task and generation embedding
+    # model, test all evaluation models and embedding model combinations
     total_combinations = (
         len(tasks) * len(exp_cfg.attack_embedding_models) *
         len(victim_models) * len(exp_cfg.victim_embedding_models)
@@ -514,7 +514,7 @@ def main() -> int:
                 attack_embedding_models[attack_emb_model_name]
             )
 
-            # Check if there are any remaining combinations for this task/attack_emb pair
+            # Check if there are any remaining combinations for this task/embedding pair
             has_remaining_combinations = False
             for victim_emb_model_name in exp_cfg.victim_embedding_models:
                 for model_name in victim_models:
@@ -528,7 +528,7 @@ def main() -> int:
                 if has_remaining_combinations:
                     break
             
-            # Skip generating attacker tools if all combinations are already done
+            # Skip generating tools if all combinations are already done
             if not has_remaining_combinations:
                 logger.info(
                     f"Skipping task '{task_str}' with attack_emb '{attack_emb_model_name}': "
@@ -536,7 +536,7 @@ def main() -> int:
                 )
                 continue
 
-            # Generate attacker tools once per task and attack embedding model
+            # Generate tools once per task and generation embedding model
             attacker_tools, train_queries, test_queries, task_str, phase2_coverage = (
                 generate_attacker_tools_for_task(
                     task,
@@ -548,15 +548,15 @@ def main() -> int:
                 )
             )
 
-            # Test all victim models and victim embedding model combinations
-            # Build vector store once per victim embedding model (shared across all victim LLM models)
+            # Test all evaluation models and embedding model combinations
+            # Build vector store once per retrieval embedding model (shared across all evaluation LLM models)
             for victim_emb_model_name in exp_cfg.victim_embedding_models:
                 victim_embedding_model = (
                     victim_embedding_models[victim_emb_model_name]
                 )
 
                 # Build vector store once per embedding combination
-                # Reused across all victim LLM models with the same embedding
+                # Reused across all evaluation LLM models with the same embedding
                 vectorstore_path, merged_tools, attacker_tool_names = (
                     build_vector_store_for_embedding_combo(
                         task_str,
@@ -570,7 +570,7 @@ def main() -> int:
                     )
                 )
 
-                # Test all victim LLM models with this embedding model
+                # Test all evaluation LLM models with this embedding model
                 for model_name in victim_models:
                     logger.info(
                         f"Running Evaluation: {task_str} / {model_name} / "

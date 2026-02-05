@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ToolFlood attack: Candidate capture on tool-using agents.
+ToolFlood: Candidate capture on tool-using agents.
 
 Phase 1: Generate tools from sampled queries (parallelized).
 Phase 2: Greedily select tools that maximize query coverage.
@@ -31,7 +31,7 @@ class ToolCandidate:
 
 @dataclass
 class AttackConfig:
-    """Configuration for ToolFlood attack."""
+    """Configuration for ToolFlood."""
     num_tools_per_query: int
     query_sample_size: int = 10
     num_tools_per_sample: Optional[int] = None
@@ -46,7 +46,7 @@ class AttackConfig:
 
 
 class ToolFloodAttack:
-    """ToolFlood attack implementation with optimized performance."""
+    """ToolFlood implementation with optimized performance."""
 
     def __init__(
         self,
@@ -57,13 +57,13 @@ class ToolFloodAttack:
         **config_kwargs,
     ):
         """
-        Initialize attack.
+        Initialize pipeline.
         
         Args:
             target_queries: Target queries to cover
             embedding_model: Embedding function
             llm_optimizer: LLM for tool generation
-            attack_config: Attack configuration (or pass config_kwargs)
+            attack_config: ToolFlood configuration (or pass config_kwargs)
         """
         self.target_queries = target_queries
         self.embedding_model = embedding_model

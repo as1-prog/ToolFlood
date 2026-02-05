@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Analyze ASR (Attack Success Rate) per task for varying B levels.
+Analyze ASR (Alternative Selection Rate) per task for varying B levels.
 
 This script:
-1. Loads attack results from experiment_output/
-2. For each task, ranks attacker tools by phase2_query_coverage
+1. Loads experiment results from experiment_output/
+2. For each task, ranks generated tools by phase2_query_coverage
 3. For each B level, selects top B tools
 4. Creates merged_tools.json and vector store for each B level
-5. Creates victim agent and re-evaluates on train and test queries
+5. Creates agent and re-evaluates on train and test queries
 6. Calculates ASR, TDR, Mean Domination per task per B level
 7. Creates CSV and plot
 """
@@ -55,7 +55,7 @@ from src.scripts.build_vectorstore import init_vector_store
 
 
 def load_attack_tools(attack_tools_path: Path) -> Dict[str, Dict]:
-    """Load attack tools JSON file."""
+    """Load generated tools JSON file."""
     with open(attack_tools_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -65,7 +65,7 @@ def get_top_b_tools(attack_tools: Dict[str, Dict], b: int) -> List[str]:
     Get top B tools ranked by phase2_query_coverage.
     
     Args:
-        attack_tools: Dictionary of tool_name -> {description, phase2_query_coverage}
+        attack_tools: Dictionary of tool_name -> {description, phase2_query_coverage} (generated tools)
         b: Number of top tools to select
         
     Returns:
@@ -91,16 +91,16 @@ def create_merged_tools_list(
     output_path: Path
 ) -> tuple[List[Tool], Set[str]]:
     """
-    Create merged tools list with benign tools + top B attack tools.
+    Create merged tools list with benign tools + top B generated tools.
     
     Args:
         benign_tools: List of benign tools
-        attack_tools: Dictionary of attack tool_name -> {description, ...}
-        top_b_tool_names: List of top B attack tool names to include
+        attack_tools: Dictionary of generated tool_name -> {description, ...}
+        top_b_tool_names: List of top B generated tool names to include
         output_path: Path to save merged_tools.json
         
     Returns:
-        Tuple of (merged_tools_list, attacker_tool_names_set)
+        Tuple of (merged_tools_list, generated_tool_names_set)
     """
     merged_dict = {tool.name: tool.description for tool in benign_tools}
     attacker_names = set()
@@ -135,7 +135,7 @@ def create_merged_tools_list(
     
     logger.info(
         f"Created merged_tools.json with {len(benign_tools)} benign + "
-        f"{len(top_b_tool_names)} attack = {len(merged_tools)} total tools"
+        f"{len(top_b_tool_names)} generated = {len(merged_tools)} total tools"
     )
     
     return merged_tools, attacker_names
@@ -146,7 +146,7 @@ async def evaluate_queries(
     queries: List[str],
     attacker_tool_names: Set[str],
 ) -> Dict:
-    """Evaluate queries on the victim agent and track selections."""
+    """Evaluate queries on the agent and track selections."""
     logger.info(f"Evaluating {len(queries)} queries...")
 
     results = {
@@ -271,7 +271,7 @@ def main():
     )
     b_levels = sorted(b_level_cfg.get("b_levels", [5, 10, 15, 20]))
     
-    # Get victim model and embedding from config (use first ones)
+    # Get evaluation model and embedding from config (use first ones)
     victim_models = exp_cfg.get("victim_models", ["gpt-4o-mini"])
     victim_embedding_models = exp_cfg.get("victim_embedding_models", ["text-embedding-3-small"])
     victim_model = victim_models[0]
@@ -283,8 +283,8 @@ def main():
     logger.info(f"Experiment output: {experiment_output}")
     logger.info(f"Output directory: {output_dir}")
     logger.info(f"B levels: {b_levels}")
-    logger.info(f"Victim model: {victim_model}")
-    logger.info(f"Victim embedding: {victim_embedding_model_name}")
+    logger.info(f"Evaluation model: {victim_model}")
+    logger.info(f"Evaluation embedding: {victim_embedding_model_name}")
     logger.info(f"Top K: {top_k}")
     
     # Load benign tools
@@ -329,13 +329,13 @@ def main():
     for domain in tqdm(sorted(results_by_domain.keys()), desc="Processing tasks"):
         task_results = results_by_domain[domain]
         
-        # Find the result with attack tools
+        # Find the result with generated tools
         result_with_attack = None
         attack_tools_path = None
         
-        # Try to find attack_tools.json for this domain
+        # Try to find generated tools JSON for this domain
         for result in task_results:
-            # Construct path to attack_tools.json
+            # Construct path to attack_tools.json (file name unchanged)
             domain_dir = experiment_output / domain
             attack_emb = result.get("attack_embedding_model", "text-embedding-3-small")
             victim_emb = result.get("victim_embedding_model", "text-embedding-3-small")
@@ -348,14 +348,14 @@ def main():
                 break
         
         if attack_tools_path is None or not attack_tools_path.exists():
-            logger.warning(f"No attack_tools.json found for domain: {domain}")
+            logger.warning(f"No generated tools JSON found for domain: {domain}")
             continue
         
         logger.info(f"\nProcessing domain: {domain}")
         
-        # Load attack tools
+        # Load generated tools
         attack_tools_dict = load_attack_tools(attack_tools_path)
-        logger.info(f"Loaded {len(attack_tools_dict)} attack tools")
+        logger.info(f"Loaded {len(attack_tools_dict)} generated tools")
         
         # Load test queries for this task
         task_names = [domain] if domain else None
@@ -384,7 +384,7 @@ def main():
         )
         base_vectorstore = load_vector_store(base_vectorstore_path, victim_embedding_model)
         
-        # Track which attack tools have been added to vector store
+        # Track which generated tools have been added to vector store
         previous_attacker_names = set()
         
         # Process each B level
@@ -408,11 +408,11 @@ def main():
             )
             
             # Build vector store incrementally
-            # Find new attacker tools by comparing with previous iteration
+            # Find new generated tools by comparing with previous iteration
             new_attacker_tools = attacker_tool_names - previous_attacker_names
             
             if new_attacker_tools:
-                logger.info(f"Adding {len(new_attacker_tools)} new attack tools to vector store...")
+                logger.info(f"Adding {len(new_attacker_tools)} new generated tools to vector store...")
                 # Create documents for new tools
                 new_tools_docs = []
                 for tool_name in new_attacker_tools:
@@ -436,14 +436,14 @@ def main():
             else:
                 logger.info("No new tools to add")
             
-            # Update previous attacker names for next iteration
+            # Update previous generated tool names for next iteration
             previous_attacker_names = attacker_tool_names.copy()
             
             # Save vector store for this B level
             vectorstore_path.parent.mkdir(parents=True, exist_ok=True)
             base_vectorstore.save_local(str(vectorstore_path))
             
-            # Create victim agent (reuse the same vector store instance)
+            # Create agent (reuse the same vector store instance)
             vectorstore = base_vectorstore
             
             agent = VictimAgent(
@@ -517,7 +517,7 @@ def main():
         # Plot
         pivot_df.plot(kind="bar", ax=ax, width=0.8)
         ax.set_xlabel("Task Domain", fontsize=12)
-        ax.set_ylabel("ASR (Attack Success Rate)", fontsize=12)
+        ax.set_ylabel("ASR (Alternative Selection Rate)", fontsize=12)
         ax.set_title("ASR per Task for Varying B Levels (Test)", fontsize=14, fontweight="bold")
         ax.legend(title="B Level", bbox_to_anchor=(1.05, 1), loc="upper left")
         ax.grid(axis="y", alpha=0.3)
@@ -535,7 +535,7 @@ def main():
             ax2.plot(pivot_df.columns, pivot_df.loc[domain], marker="o", label=domain, linewidth=2)
         
         ax2.set_xlabel("B Level", fontsize=12)
-        ax2.set_ylabel("ASR (Attack Success Rate)", fontsize=12)
+        ax2.set_ylabel("ASR (Alternative Selection Rate)", fontsize=12)
         ax2.set_title("ASR vs B Level per Task (Test)", fontsize=14, fontweight="bold")
         ax2.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
         ax2.grid(alpha=0.3)

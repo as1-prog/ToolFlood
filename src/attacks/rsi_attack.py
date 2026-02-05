@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Random-Sybil Injection (RSI) Attack for ToolFlood Threat Model
+Random-Sybil Injection (RSI) for ToolFlood Threat Model
 
 This implementation generates random tools with benign-looking descriptions
 without conditioning on queries. Tools are generated using GPT with random
@@ -39,7 +39,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 
 class RSIConfig(BaseModel):
-    """Configuration for the RSI attack."""
+    """Configuration for RSI."""
 
     num_tools: int = Field(
         default=200,
@@ -56,10 +56,10 @@ class RSIConfig(BaseModel):
 
 
 class RSIAttackConfig(BaseModel):
-    """Full configuration for RSI attack script."""
+    """Full configuration for RSI script."""
 
     output_directory: str = Field(
-        description="Where to write RSI outputs (attacker tools)"
+        description="Where to write RSI outputs (generated tools)"
     )
     benign_data_directory: Optional[str] = Field(
         default=None,
@@ -91,7 +91,7 @@ class RSIAttackConfig(BaseModel):
 
 
 def load_rsi_attack_config(config_path: Path) -> RSIAttackConfig:
-    """Load RSI attack configuration from YAML file."""
+    """Load RSI configuration from YAML file."""
     cfg = load_config(config_path)
     rsi_cfg = cfg.get("rsi_attack", {})
     return RSIAttackConfig(**rsi_cfg)
@@ -306,7 +306,7 @@ def main() -> int:
             "No benign tools found, generating tools without reference"
         )
 
-    # Initialize LLM generator for attack
+    # Initialize LLM generator
     if not rsi_cfg.generator_model:
         raise ValueError(
             "generator_model is required in rsi_attack config. "
@@ -322,17 +322,17 @@ def main() -> int:
         temperature=rsi_cfg.temperature,
     )
 
-    # Initialize attack
+    # Initialize RSI
     attack = RSIAttack(
         benign_tools,
         rsi_config,
         llm_generator=llm_generator,
     )
 
-    # Execute attack
+    # Execute RSI
     attacker_tools, results = attack.attack()
 
-    # Save attacker tools
+    # Save generated tools
     output_dir = resolve_path(base_path, rsi_cfg.output_directory)
     output_dir.mkdir(parents=True, exist_ok=True)
     tools_output_path = output_dir / "attacker_tools.json"

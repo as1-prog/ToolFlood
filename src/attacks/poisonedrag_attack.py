@@ -2,10 +2,10 @@
 """
 Black-Box PoisonedRAG Baseline for ToolFlood Threat Model
 
-This implementation adapts PoisonedRAG's knowledge corruption attack
-to target tool-augmented LLM agents, creating malicious tools that:
+This implementation adapts PoisonedRAG's knowledge corruption
+to target tool-augmented LLM agents, creating synthetic tools that:
 1. Are retrieved for target queries (retrieval condition)
-2. Mislead the agent to select attacker-chosen tools (generation condition)
+2. Mislead the agent to select generated tools (generation condition)
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 
 class PoisonRAGConfig(BaseModel):
-    """Configuration for PoisonRAG attack (loaded from config; runner may set max_train_queries)."""
+    """Configuration for PoisonRAG (loaded from config; runner may set max_train_queries)."""
 
     tools_per_query: int = Field(
         default=1,
@@ -45,7 +45,7 @@ class PoisonRAGConfig(BaseModel):
     generator_model: Optional[str] = Field(
         default=None,
         description=(
-            "LLM for generating tool descriptions (used by runner; not passed to attack). "
+            "LLM for generating tool descriptions (used by runner; not passed to pipeline). "
             "Must be a key from the models section."
         )
     )
@@ -79,7 +79,7 @@ class PoisonRAGConfig(BaseModel):
 
 
 def load_poisonrag_config(config_path: Path) -> PoisonRAGConfig:
-    """Load PoisonRAG attack configuration from YAML file (config.poisonrag_attack)."""
+    """Load PoisonRAG configuration from YAML file (config.poisonrag_attack)."""
     cfg = load_config(config_path)
     poisonrag_cfg = cfg.get("poisonrag_attack", {})
     return PoisonRAGConfig(**poisonrag_cfg)
@@ -87,15 +87,15 @@ def load_poisonrag_config(config_path: Path) -> PoisonRAGConfig:
 
 class PoisonRAGBlackBoxAttack:
     """
-    Black-box PoisonedRAG attack for tool-augmented agents.
+    Black-box PoisonedRAG for tool-augmented agents.
 
-    Based on: Zou et al., "PoisonedRAG: Knowledge Corruption Attacks
+    Based on: Zou et al., "PoisonedRAG: Knowledge Corruption
     to Retrieval-Augmented Generation of Large Language Models"
 
-    Attack Strategy:
+    Strategy:
     - S (retrieval text): Target question itself (ensures retrieval)
     - I (generation text): LLM-generated tool description text relevant to query
-    - Malicious tool = S ⊕ I (concatenation)
+    - Synthetic tool = S ⊕ I (concatenation)
     """
 
     def __init__(
@@ -107,15 +107,15 @@ class PoisonRAGBlackBoxAttack:
         llm_generator: Any,
     ) -> None:
         """
-        Initialize PoisonedRAG attack.
+        Initialize PoisonRAG.
 
         Args:
             queries: Training queries used to craft poisoned tools.
             benign_tools: Benign tools from the original ToolBench / ToolE
                 setup. Currently used only for logging and future extensions.
-            embedding_model: Embedding model used both by the victim agent
-                and the attacker (black-box access).
-            cfg: PoisonRAGConfig with attack parameters.
+            embedding_model: Embedding model used for retrieval and generation
+                (black-box access).
+            cfg: PoisonRAGConfig with parameters.
             llm_generator: LLM for generating I component using structured
                 output. Required.
         """
@@ -263,7 +263,7 @@ class PoisonRAGBlackBoxAttack:
 
     def attack(self) -> Tuple[List[Tool], List[Dict[str, Any]]]:
         """
-        Execute the PoisonRAG-style attack.
+        Execute the PoisonRAG-style pipeline.
 
         Returns:
             attacker_tools: List of poisoned Tool objects to be merged with

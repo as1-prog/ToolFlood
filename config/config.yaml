@@ -1,7 +1,7 @@
 paths:
   data_dir: "./data"
 
-# --- ToolFlood attack ---
+# --- ToolFlood ---
 toolflood:
   num_tools_per_query: 5
   query_sample_size: 20
@@ -14,7 +14,7 @@ toolflood:
   embedding_model: "text-embedding-3-small"
   llm_optimizer_model: "gpt-4o-mini"
 
-# --- RSI attack ---
+# --- RSI ---
 rsi_attack:
   output_directory: "./outputs/rsi/toolbench"
   benign_data_directory: "./data/ToolBench"  # optional; else uses experiment.benign_data_directory
@@ -23,7 +23,7 @@ rsi_attack:
   generator_model: "gpt-4o-mini"
   temperature: 1.0
 
-# --- PoisonRAG attack (attack params only; experiment uses experiment.*) ---
+# --- PoisonRAG (params only; experiment uses experiment.*) ---
 poisonrag_attack:
   tools_per_query: 1
   max_trials: 3
