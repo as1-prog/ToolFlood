@@ -2,8 +2,22 @@
 
 ToolFlood is a **candidate-capture** framework for tool-using agents. It generates synthetic tools that are retrieved instead of benign tools when the agent answers user queries.
 
+---
+
 - **Phase 1:** Generate tool candidates from sampled target queries (parallelized).
 - **Phase 2:** Greedily select tools that maximize query coverage (embedding distance threshold).
+
+---
+
+## ⚠️ Disclaimer — Research & Educational Use Only
+
+**This repository is intended solely for security research, adversarial ML evaluation, and educational purposes.**
+
+- **What it does:** ToolFlood studies how tool-using agents can be influenced by synthetic or adversarial tools during retrieval. It is designed to measure and understand the robustness of tool retrieval systems (e.g., ASR, TDR, domination metrics).
+- **Intended use:** Legitimate security research, academic study, red-teaming of AI agents, and improving defensive tool-retrieval systems. It is **not** intended for building malware, exploits, or any use that harms systems or users.
+- **Responsible use:** If you use this code, you are responsible for ensuring your use complies with applicable laws, terms of service, and ethical guidelines. Do not use it to attack systems without explicit authorization.
+
+For security concerns, reporting misuse, or questions about this project, see [SECURITY.md](SECURITY.md).
 
 ---
 
