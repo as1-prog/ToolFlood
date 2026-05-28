@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Plot the distribution of closest thresholds for ToolBench and ToolE.
+Plot the distribution of closest thresholds for ToolBench and MetaTool.
 
 This script computes the closest benign tool distance (threshold) for each
-query in ToolBench and ToolE datasets, and plots their distributions in the
-same plot.
+query in ToolBench and MetaTool datasets, and plots their distributions in
+the same plot.
 """
 
 from __future__ import annotations
@@ -155,7 +155,7 @@ def print_statistics(dataset_name: str, thresholds: list[float]) -> None:
 
 def plot_distributions(
     toolbench_thresholds: list[float],
-    toole_thresholds: list[float],
+    metatool_thresholds: list[float],
     output_path: Path | None = None,
 ) -> None:
     """
@@ -163,7 +163,7 @@ def plot_distributions(
 
     Args:
         toolbench_thresholds: List of thresholds for ToolBench
-        toole_thresholds: List of thresholds for ToolE
+        metatool_thresholds: List of thresholds for MetaTool
         output_path: Optional path to save the plot
     """
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -178,10 +178,10 @@ def plot_distributions(
         edgecolor="black",
     )
     ax.hist(
-        toole_thresholds,
+        metatool_thresholds,
         bins=50,
         alpha=0.6,
-        label="ToolE",
+        label="MetaTool",
         color="red",
         edgecolor="black",
     )
@@ -189,7 +189,7 @@ def plot_distributions(
     ax.set_xlabel("Closest Threshold (Cosine Distance)", fontsize=12)
     ax.set_ylabel("Frequency", fontsize=12)
     ax.set_title(
-        "Distribution of Closest Thresholds\n(ToolBench vs ToolE)",
+        "Distribution of Closest Thresholds\n(ToolBench vs MetaTool)",
         fontsize=14,
         fontweight="bold"
     )
@@ -230,22 +230,26 @@ def main() -> int:
         toolbench_data_dir, embedding_model
     )
 
-    # Compute thresholds for ToolE
-    logger.info("Processing ToolE...")
-    toole_data_dir = base_path / "data" / "ToolE"
-    toole_thresholds = compute_all_thresholds(toole_data_dir, embedding_model)
+    # Compute thresholds for MetaTool
+    logger.info("Processing MetaTool...")
+    metatool_data_dir = base_path / "data" / "MetaTool"
+    metatool_thresholds = compute_all_thresholds(
+        metatool_data_dir, embedding_model
+    )
 
     # Print statistics
     print("=" * 60)
     print("THRESHOLD DISTRIBUTION STATISTICS")
     print("=" * 60)
     print_statistics("ToolBench", toolbench_thresholds)
-    print_statistics("MetaTool", toole_thresholds)
+    print_statistics("MetaTool", metatool_thresholds)
     print("=" * 60)
 
     # Plot distributions
     output_path = Path(__file__).parent / "threshold_distribution_plot.png"
-    plot_distributions(toolbench_thresholds, toole_thresholds, output_path)
+    plot_distributions(
+        toolbench_thresholds, metatool_thresholds, output_path
+    )
 
     logger.success("Analysis complete!")
 

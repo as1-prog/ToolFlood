@@ -117,7 +117,7 @@ class RSIAttack:
         Initialize RSI attack.
 
         Args:
-            benign_tools: Benign tools from the original ToolBench / ToolE
+            benign_tools: Benign tools from the original ToolBench / MetaTool
                 setup. Used for reference and to avoid name conflicts.
             cfg: RSIConfig with attack parameters.
             llm_generator: LLM for generating random tools using structured

@@ -58,7 +58,7 @@ def calculate_metrics_per_model(df: pd.DataFrame) -> pd.DataFrame:
 
 def find_results_tables(outputs_dir: Path) -> list[tuple[Path, str, str]]:
     """Find top-level results_table.csv only: outputs/<attack>/<benchmark>/results_table.csv.
-    Skips per-task CSVs (e.g. rsi/toole/Scenario/victim_emb.../results_table.csv) so each
+    Skips per-task CSVs (e.g. rsi/metatool/Scenario/victim_emb.../results_table.csv) so each
     (attack, benchmark) contributes one row per model.
     """
     results = []

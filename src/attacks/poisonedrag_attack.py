@@ -111,7 +111,7 @@ class PoisonRAGBlackBoxAttack:
 
         Args:
             queries: Training queries used to craft poisoned tools.
-            benign_tools: Benign tools from the original ToolBench / ToolE
+            benign_tools: Benign tools from the original ToolBench / MetaTool
                 setup. Currently used only for logging and future extensions.
             embedding_model: Embedding model used for retrieval and generation
                 (black-box access).

@@ -57,8 +57,8 @@ uv sync
 
 | Option | Description |
 |--------|-------------|
-| `benign_data_directory` | Dir with `tasks/` and `tools.json` (e.g. `./data/ToolE`) |
-| `output_directory` | Results, merged tools, vectorstores (e.g. `./outputs/toolflood/toole`) |
+| `benign_data_directory` | Dir with `tasks/` and `tools.json` (e.g. `./data/MetaTool`) |
+| `output_directory` | Results, merged tools, vectorstores (e.g. `./outputs/toolflood/metatool`) |
 | `max_train_queries` | Max train queries for tool generation |
 | `max_test_queries` | Max test queries for evaluation |
 | `victim_models` | LLM names to evaluate |
@@ -146,7 +146,7 @@ These are computed for both train and test splits and reported in `results_table
 
 ## 🔁 Reproducibility
 
-The **`outputs/`** directory contains all experiment runs (one subfolder per method, then per benchmark; e.g. `outputs/toolflood/toole/`).
+The **`outputs/`** directory contains all experiment runs (one subfolder per method, then per benchmark; e.g. `outputs/toolflood/metatool/`).
 
 To aggregate metrics across all runs (all methods and benchmarks under `outputs/`), run:
 
