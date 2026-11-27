@@ -10,7 +10,7 @@ This script:
 5. Reports ASR, TDR, and Mean Domination metrics.
 
 CLI:
-    python -m rsi.run_experiment --config config/config.yaml
+    python -m src.experiments.run_rsi --config config/config.yaml
 """
 
 from __future__ import annotations
@@ -49,6 +49,7 @@ from src.utils import (
     get_base_path,
     init_embedding_model,
     init_llm,
+    load_agent_config,
     load_config,
     load_experiment_config,
     load_models,
@@ -124,6 +125,7 @@ async def _run_experiment_for_task(
     victim_llm: Any,
     victim_embedding_model_name: str,
     victim_model_name: str,
+    top_k: int,
 ) -> Dict[str, Any]:
     """Run RSI evaluation for one (task, victim_emb, victim_model)."""
     logger.info(
@@ -154,7 +156,6 @@ async def _run_experiment_for_task(
         f"Task {task_str}: {len(test_queries)} test queries"
     )
 
-    top_k = exp_cfg.max_train_evaluation_queries or 5
     agent = VictimAgent(
         tools=merged_tools,
         vectorstore=merged_vectorstore,
@@ -236,6 +237,7 @@ async def _run_single_experiment(cfg_path: Path, models_path: Path) -> int:
     models_cfg = load_models(models_path)
     full_cfg = {**cfg, **models_cfg}
     exp_cfg = load_experiment_config(cfg_path)
+    agent_cfg = load_agent_config(cfg_path)
     rsi_cfg = load_rsi_attack_config(cfg_path)
 
     base_path = get_base_path(cfg_path)
@@ -428,6 +430,7 @@ async def _run_single_experiment(cfg_path: Path, models_path: Path) -> int:
                     victim_llm=victim_llm,
                     victim_embedding_model_name=victim_emb_name,
                     victim_model_name=victim_model_name,
+                    top_k=agent_cfg.top_k,
                 )
 
                 all_results.append(result)

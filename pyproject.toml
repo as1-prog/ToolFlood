@@ -1,7 +1,7 @@
 [project]
 name = "toolflood"
 version = "0.1.0"
-description = "Add your description here"
+description = "Candidate-capture framework for studying tool retrieval in LLM agents"
 requires-python = ">=3.12"
 dependencies = [
     "datasets==4.4.2",

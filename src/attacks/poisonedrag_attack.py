@@ -256,7 +256,7 @@ class PoisonRAGBlackBoxAttack:
             desc_vec = np.asarray(self.embedding_model.embed_query(gen_text))
             distance = cosine_distance(query_vec, desc_vec)
             return distance <= float(self.cfg.relevance_max_cosine_distance)
-        except Exception as exc:  # pragma: no cover - defensive
+        except Exception as exc:
             logger.debug(f"Relevance verification failed: {exc}")
             return False
 

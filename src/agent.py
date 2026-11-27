@@ -3,7 +3,7 @@
 Toy "victim agent" that retrieves tools then asks an LLM to pick one.
 
 CLI:
-  python -m toolflood.agent --config config/config.yaml
+  python -m src.agent --config config/config.yaml
 """
 
 from __future__ import annotations
@@ -91,7 +91,7 @@ class VictimAgent:
         """Return True if the tool passes the safety filter."""
         try:
             self._ensure_prompt_guard()
-        except Exception as exc:  # pragma: no cover - defensive
+        except Exception as exc:
             logger.warning(f"Failed to load safety model, skipping filter: {exc}")
             return True
 
@@ -103,7 +103,7 @@ class VictimAgent:
             label = (out[0].get("label") or "").upper()
             # Prompt Guard 2: LABEL_0 = benign (allowed), LABEL_1 = malicious (blocked)
             return label == "LABEL_0"
-        except Exception as exc:  # pragma: no cover - defensive
+        except Exception as exc:
             logger.warning(f"Safety model inference failed, skipping filter: {exc}")
             return True
 
@@ -181,7 +181,6 @@ class VictimAgent:
         Args:
             query_text: Query string.
             top_k: Number of tools to return (defaults to self.top_k).
-            lambda_mult: MMR trade-off parameter between relevance and diversity.
             fetch_k: Number of initial candidates to fetch before MMR
                 re-ranking. If None, defaults to 4 * top_k.
         """
@@ -195,11 +194,8 @@ class VictimAgent:
         query_preview = query_text[:50]
         if self.verbose:
             logger.debug(
-                "Retrieving top-%d tools with MMR (fetch_k=%d) "
-                "for query: %s...",
-                top_k,
-                fetch_k,
-                query_preview,
+                f"Retrieving top-{top_k} tools with MMR (fetch_k={fetch_k}) "
+                f"for query: {query_preview}..."
             )
 
         # Use FAISS MMR search

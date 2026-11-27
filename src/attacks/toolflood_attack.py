@@ -141,7 +141,7 @@ Each tool must:
         return sorted(tool_candidates, key=lambda candidate: candidate.min_distance_to_queries)
 
     async def _phase1_iteration(
-        self, iteration_number: int, concurrency_semaphore: asyncio.Semaphore
+        self, concurrency_semaphore: asyncio.Semaphore
     ) -> List[ToolCandidate]:
         """Single Phase 1 iteration: sample queries and generate tools."""
         async with concurrency_semaphore:
@@ -155,21 +155,8 @@ Each tool must:
                 num_queries_to_sample
             )
             sampled_queries = [self.target_queries[idx] for idx in sampled_indices]
-            
-            # logger.debug(
-            #     f"Iter {iteration_number}: Sampled {len(sampled_queries)} queries, "
-            #     f"first: '{sampled_queries[0][:60]}...'"
-            # )
 
-            # Generate tools
             generated_candidates = await self._generate_tools(sampled_queries)
-            # logger.info(
-            #     f"Iter {iteration_number}: Generated {len(generated_candidates)} tools, "
-            #     f"best distance: {generated_candidates[0].min_distance_to_queries:.4f}"
-            #     if generated_candidates 
-            #     else f"Iter {iteration_number}: No tools generated"
-            # )
-            
             return generated_candidates
 
     async def _run_phase1(self) -> List[ToolCandidate]:
@@ -181,8 +168,8 @@ Each tool must:
         
         concurrency_semaphore = asyncio.Semaphore(self.attack_config.max_concurrent_tasks)
         generation_tasks = [
-            self._phase1_iteration(iteration_num, concurrency_semaphore)
-            for iteration_num in range(1, self.attack_config.max_generation_iterations + 1)
+            self._phase1_iteration(concurrency_semaphore)
+            for _ in range(self.attack_config.max_generation_iterations)
         ]
         
         all_generated_tools = []

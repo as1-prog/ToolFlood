@@ -12,7 +12,7 @@ much simpler PoisonRAG-style attack:
 5. Reports ASR, TDR, and Mean Domination metrics.
 
 CLI:
-    python -m poisonrag.run_experiment --config config/config.yaml
+    python -m src.experiments.run_poisonedrag --config config/config.yaml
 """
 
 from __future__ import annotations
@@ -235,9 +235,7 @@ async def run_experiment_for_model(
     # Load existing vector store (shared across models with same embedding)
     merged_vectorstore = load_vector_store(vectorstore_path, victim_embedding_model)
     victim_llm = init_llm(cfg, model_name=model_name)
-    
-    # Agent retrieval depth is configured under `agent.top_k` in config.
-    # We keep `experiment.max_train_evaluation_queries` as a legacy fallback.
+
     top_k = agent_cfg.top_k
     agent = VictimAgent(
         tools=merged_tools,
